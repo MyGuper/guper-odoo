@@ -1,31 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <templates id="template" xml:space="preserve">
     <t t-name="guper_pos_cashback.PinPopup">
-        <div class="popup guper-pin-popup" role="dialog">
-            <header class="title">Validación por PIN</header>
-            <main class="body">
-                <p t-if="state.sentTo">
+        <div class="popup guper-popup" role="dialog">
+            <div class="gp-header"><h4>Validación por PIN</h4></div>
+            <div class="gp-body">
+                <p t-if="state.sentTo" class="gp-muted">
                     Enviamos un PIN por <t t-esc="state.channel"/> a
                     <strong t-esc="state.sentTo"/>.
                 </p>
-                <div class="my-2">
-                    <input type="text" inputmode="numeric" maxlength="4"
-                           class="form-control form-control-lg text-center"
-                           placeholder="0000"
-                           t-model="state.pin"
-                           t-att-disabled="state.busy or expired"/>
-                </div>
-                <p class="text-muted">
+                <input type="text" inputmode="numeric" maxlength="4"
+                       class="form-control gp-pin-input"
+                       placeholder="0000"
+                       t-model="state.pin"
+                       t-att-disabled="state.busy or expired"/>
+                <p class="gp-muted mt-2 mb-0 text-center">
                     <t t-if="!expired">Expira en <t t-esc="remainingLabel"/></t>
                     <t t-else="">PIN expirado.</t>
                     <span t-if="state.attempts"> · Intentos: <t t-esc="state.attempts"/>/3</span>
                 </p>
-            </main>
-            <footer class="footer">
-                <div class="button confirm highlight" t-on-click="confirm">Validar</div>
-                <div class="button" t-on-click="onResend">Reenviar</div>
-                <div class="button cancel" t-on-click="cancel">Cancelar</div>
-            </footer>
+            </div>
+            <div class="gp-footer">
+                <button class="btn btn-link text-muted me-auto" t-on-click="cancel">Cancelar</button>
+                <button class="btn btn-light" t-on-click="onResend"
+                        t-att-disabled="state.busy">Reenviar</button>
+                <button class="btn btn-primary" t-on-click="confirm"
+                        t-att-disabled="state.busy or expired or state.pin.length !== 4">Validar</button>
+            </div>
         </div>
     </t>
 </templates>

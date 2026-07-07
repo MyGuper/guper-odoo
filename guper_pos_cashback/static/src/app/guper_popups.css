@@ -1,0 +1,47 @@
+/* Guper POS - estilo dos popups (PIN e valor a resgatar) no Odoo 17 */
+.guper-popup {
+    width: 460px;
+    max-width: 92vw;
+}
+.guper-popup .gp-header {
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid #e6e9ed;
+}
+.guper-popup .gp-header h4 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+}
+.guper-popup .gp-body {
+    padding: 20px 22px;
+}
+.guper-popup .gp-footer {
+    padding: 14px 22px 18px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    border-top: 1px solid #e6e9ed;
+}
+.guper-popup .gp-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 5px 0;
+    font-size: 15px;
+}
+.guper-popup .gp-muted {
+    color: #6b7280;
+}
+.guper-popup .gp-pin-input {
+    font-size: 30px;
+    letter-spacing: 10px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    padding: 10px 12px;
+}
+.guper-popup .gp-strong {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
