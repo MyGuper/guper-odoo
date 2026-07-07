@@ -1,61 +1,30 @@
 /** @odoo-module **/
-// Odoo 17: patch do PaymentScreen. API de pedido em snake_case; identificador
-// do pedido = order.name (= pos_reference no backend).
+// Odoo 17: al cerrar la venta, confirma en Guper (acumulacion + canje) con el
+// token fresco obtenido en el clic de "Pagar". NO bloquea el cierre ante
+// errores: el cron reintenta la acumulacion.
 import { patch } from "@web/core/utils/patch";
 import { PaymentScreen } from "@point_of_sale/app/screens/payment_screen/payment_screen";
-import { _t } from "@web/core/l10n/translation";
 
 patch(PaymentScreen.prototype, {
     async validateOrder(isForceValidate) {
         const order = this.currentOrder;
-        const orderRef = order && (order.guper_order_ref || order.name || order.uid);
-        const redeem = order?.guper_redeem_amount || 0;
-        const partner = order?.get_partner();
-
-        if (redeem > 0) {
-            // RESGATE: confirma o debito. Nao pode fechar sem confirmacao.
+        // Solo si el flujo de "Pagar" corrio (guper_order_ref lo marca): asi no
+        // se dispara en devoluciones ni cuando rewardByOrder fallo.
+        const orderRef = order && order.guper_order_ref;
+        if (orderRef) {
             try {
                 await this._guperCall("/guper/redeem/confirm", {
                     order_uuid: orderRef,
-                    amount_to_redeem: redeem,
+                    amount_to_redeem: order.guper_redeem_amount || 0,
                 });
             } catch (e) {
                 this.env.services.notification.add(
-                    "Guper: " + (e.message || _t("fallo al confirmar el canje")),
-                    { type: "danger" }
+                    "Guper: " + (e.message || "no se pudo confirmar"),
+                    { type: "warning" }
                 );
-                return; // aborta a validacao
-            }
-        } else if (partner) {
-            // ACUMULO em tempo real; se falhar, o cron assume depois.
-            try {
-                await this._guperCall("/guper/accrue", {
-                    order_uuid: orderRef,
-                    config_id: this.pos.config.id,
-                    partner_id: partner.id,
-                    items: this._guperItems(order),
-                });
-            } catch (e) {
-                // silencioso: fallback via _cron_guper_accruals
             }
         }
         return super.validateOrder(isForceValidate);
-    },
-
-    _guperItems(order) {
-        return order
-            .get_orderlines()
-            .filter((l) => l.get_quantity() > 0 && (l.get_unit_price() || 0) >= 0)
-            .map((l) => {
-                const p = l.get_product();
-                return {
-                    id: p.default_code || String(p.id),
-                    name: p.display_name,
-                    quantity: Math.round(l.get_quantity()),
-                    price: Math.round((l.get_unit_price() || 0) * 100),
-                    productId: String(p.id),
-                };
-            });
     },
 
     async _guperCall(path, params) {
@@ -70,7 +39,7 @@ patch(PaymentScreen.prototype, {
                 data.error.data?.message ||
                     data.error.data?.arguments?.[0] ||
                     data.error.message ||
-                    "error desconocido"
+                    "error"
             );
         }
         return data.result;
