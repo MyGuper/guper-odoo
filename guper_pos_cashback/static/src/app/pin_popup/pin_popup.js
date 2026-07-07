@@ -74,6 +74,13 @@ export class GuperPinPopup extends Component {
         return this.state.remaining <= 0;
     }
 
+    get remainingLabel() {
+        // String/Math nao existem no contexto do template OWL -> formata aqui.
+        const m = Math.floor(this.state.remaining / 60);
+        const s = String(this.state.remaining % 60).padStart(2, "0");
+        return `${m}:${s}`;
+    }
+
     async onResend() {
         this.state.attempts = 0;
         await this._generate();
