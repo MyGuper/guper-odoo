@@ -1,0 +1,12 @@
+# Python
+*.pyc
+*.pyo
+__pycache__/
+
+# Empacotamento / temporarios
+*.zip
+.DS_Store
+
+# Editores
+.idea/
+.vscode/

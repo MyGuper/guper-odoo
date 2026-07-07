@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="guper_pos_cashback.CashbackButton">
+        <button class="control-button btn btn-light" t-on-click="onClick">
+            <i class="fa fa-gift" role="img" title="Cashback Guper"/>
+            <span class="ms-1">Cashback Guper</span>
+        </button>
+    </t>
+</templates>

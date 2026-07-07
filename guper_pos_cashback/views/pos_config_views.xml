@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="pos_config_view_form_guper" model="ir.ui.view">
+        <field name="name">pos.config.form.guper</field>
+        <field name="model">pos.config</field>
+        <field name="inherit_id" ref="point_of_sale.pos_config_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="Guper Cashback" name="guper">
+                    <field name="guper_store_id"/>
+                    <field name="guper_interface"/>
+                    <field name="guper_pin_threshold"/>
+                    <field name="guper_cashback_product_id"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

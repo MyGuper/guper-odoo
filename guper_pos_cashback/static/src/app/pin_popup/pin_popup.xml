@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="guper_pos_cashback.PinPopup">
+        <Dialog title="'Validacao por PIN'">
+            <div class="guper-pin-popup">
+                <p t-if="state.sentTo">
+                    Enviamos um PIN por <t t-esc="state.channel"/> para
+                    <strong t-esc="state.sentTo"/>.
+                </p>
+                <div class="input-group my-2">
+                    <input type="text" inputmode="numeric" maxlength="4"
+                           class="form-control form-control-lg text-center"
+                           placeholder="0000"
+                           t-model="state.pin"
+                           t-att-disabled="state.busy or expired"/>
+                </div>
+                <p class="text-muted">
+                    <t t-if="!expired">
+                        Expira em <t t-esc="Math.floor(state.remaining/60)"/>:<t
+                            t-esc="String(state.remaining%60).padStart(2,'0')"/>
+                    </t>
+                    <t t-else="">PIN expirado.</t>
+                    <span t-if="state.attempts">
+                        · Tentativas: <t t-esc="state.attempts"/>/3
+                    </span>
+                </p>
+            </div>
+            <t t-set-slot="footer">
+                <button class="btn btn-secondary" t-on-click="onResend"
+                        t-att-disabled="state.busy">Reenviar</button>
+                <button class="btn btn-primary" t-on-click="onConfirm"
+                        t-att-disabled="state.busy or expired or state.pin.length !== 4">
+                    Validar
+                </button>
+                <button class="btn btn-link" t-on-click="onCancel">Cancelar</button>
+            </t>
+        </Dialog>
+    </t>
+</templates>

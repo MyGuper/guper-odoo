@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Acumulo assincrono dos pedidos sem resgate (offline-tolerante). -->
+    <record id="cron_guper_accruals" model="ir.cron">
+        <field name="name">Guper: enviar acumulos pendentes</field>
+        <field name="model_id" ref="point_of_sale.model_pos_order"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_guper_accruals()</field>
+        <field name="interval_number">5</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True"/>
+    </record>
+
+    <!-- Estorno no Guper de pedidos de devolucao (refund) - total ou parcial. -->
+    <record id="cron_guper_cancellations" model="ir.cron">
+        <field name="name">Guper: processar estornos/devolucoes</field>
+        <field name="model_id" ref="point_of_sale.model_pos_order"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_guper_cancellations()</field>
+        <field name="interval_number">5</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True"/>
+    </record>
+
+    <!-- Limpeza de sessoes de checkout expiradas. -->
+    <record id="cron_guper_session_cleanup" model="ir.cron">
+        <field name="name">Guper: limpar sessoes de checkout</field>
+        <field name="model_id" ref="model_guper_checkout_session"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_cleanup()</field>
+        <field name="interval_number">30</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True"/>
+    </record>
+
+    <!-- TODO(guper): cron diario de reconciliacao pela replica MySQL para
+         reprocessar pedidos em guper_accrual_state = 'error'. -->
+</odoo>

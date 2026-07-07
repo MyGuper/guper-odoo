@@ -1,0 +1,132 @@
+# Translation of guper_pos_cashback (Odoo 18) into Spanish.
+# NOTA: msgids de campos/erros/JS sao previsiveis e ja traduzidos aqui.
+# Os textos de template QWeb (popup/botao) devem ser confirmados exportando o
+# .pot pelo proprio Odoo apos instalar (Ajustes > Traduccoes > Exportar) e
+# mesclados neste arquivo, para garantir o msgid exato.
+msgid ""
+msgstr ""
+"Project-Id-Version: guper_pos_cashback\n"
+"Report-Msgid-Bugs-To: \n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# ------------------------------------------------------------ campos pos.config
+msgid "Guper Store ID"
+msgstr "ID de tienda Guper"
+
+msgid "Guper Interface"
+msgstr "Interfaz Guper"
+
+msgid "Limite p/ exigir PIN (centavos)"
+msgstr "Umbral para exigir PIN (centavos)"
+
+msgid "Produto Cashback (linha de desconto)"
+msgstr "Producto Cashback (linea de descuento)"
+
+# ------------------------------------------------------------- campos pos.order
+msgid "Guper - Acumulo"
+msgstr "Guper - Acumulacion"
+
+msgid "Guper - TID"
+msgstr "Guper - TID"
+
+msgid "Guper - Acumulado (centavos)"
+msgstr "Guper - Acumulado (centavos)"
+
+msgid "Guper - Cancelamento"
+msgstr "Guper - Cancelacion"
+
+msgid "Pendente"
+msgstr "Pendiente"
+
+msgid "Enviado"
+msgstr "Enviado"
+
+msgid "Erro"
+msgstr "Error"
+
+msgid "Cancelado"
+msgstr "Cancelado"
+
+# ----------------------------------------------------------- campos res.partner
+msgid "Guper Person ID"
+msgstr "Guper Person ID"
+
+# ------------------------------------------------- campos res.config.settings
+msgid "Guper ativo"
+msgstr "Guper activo"
+
+msgid "Guper Base URL"
+msgstr "URL base Guper"
+
+msgid "Guper API Key"
+msgstr "API Key Guper"
+
+msgid "Guper API Secret"
+msgstr "API Secret Guper"
+
+# --------------------------------------------------------- mensagens de erro
+msgid "Integracao Guper desativada (guper.enabled = False)."
+msgstr "Integracion Guper desactivada (guper.enabled = False)."
+
+msgid "Parametro 'guper.base_url' nao configurado."
+msgstr "Parametro 'guper.base_url' no configurado."
+
+msgid "Cliente Guper nao resolvido para este pedido."
+msgstr "Cliente Guper no resuelto para este pedido."
+
+msgid "Sessao Guper sem confirmToken (rode redeem/start)."
+msgstr "Sesion Guper sin confirmToken (ejecute redeem/start)."
+
+msgid "Cotacao Guper expirada. Refaca o resgate."
+msgstr "Cotizacion Guper expirada. Rehaga el canje."
+
+msgid "Valor de resgate acima do permitido."
+msgstr "Monto de canje por encima del permitido."
+
+msgid "Resgate exige PIN validado."
+msgstr "El canje requiere PIN validado."
+
+# --------------------------------------------------------- strings JS (_t)
+msgid "Selecione o cliente antes do cashback."
+msgstr "Seleccione el cliente antes del cashback."
+
+msgid "Falha ao consultar cashback Guper."
+msgstr "Fallo al consultar el cashback Guper."
+
+msgid "Sem saldo resgatavel neste pedido."
+msgstr "Sin saldo canjeable en este pedido."
+
+msgid "Resgate cancelado (PIN nao validado)."
+msgstr "Canje cancelado (PIN no validado)."
+
+msgid "Cashback aplicado."
+msgstr "Cashback aplicado."
+
+msgid "Falha ao enviar o PIN."
+msgstr "Fallo al enviar el PIN."
+
+msgid "Muitas tentativas. Reenvie o PIN."
+msgstr "Demasiados intentos. Reenvie el PIN."
+
+msgid "PIN invalido."
+msgstr "PIN invalido."
+
+msgid "Nao foi possivel confirmar o resgate. Verifique a conexao."
+msgstr "No fue posible confirmar el canje. Verifique la conexion."
+
+# ----------------------------------------------- templates QWeb (POS/OWL)
+msgid "Cashback Guper"
+msgstr "Cashback Guper"
+
+msgid "Reenviar"
+msgstr "Reenviar"
+
+msgid "Validar"
+msgstr "Validar"
+
+msgid "Cancelar"
+msgstr "Cancelar"
