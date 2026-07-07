@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <templates id="template" xml:space="preserve">
     <t t-name="guper_pos_cashback.PinPopup">
-        <Dialog title="'Validacao por PIN'">
+        <Dialog title.translate="Validacao por PIN">
             <div class="guper-pin-popup">
                 <p t-if="state.sentTo">
                     Enviamos um PIN por <t t-esc="state.channel"/> para

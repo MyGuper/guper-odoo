@@ -130,3 +130,30 @@ msgstr "Validar"
 
 msgid "Cancelar"
 msgstr "Cancelar"
+
+msgid "Aplicar"
+msgstr "Aplicar"
+
+# ------------------------------------------------- popup de PIN (titulo/textos)
+msgid "Validacao por PIN"
+msgstr "Validacion por PIN"
+
+msgid "PIN expirado."
+msgstr "PIN expirado."
+
+# ------------------------------------------------- popup de valor a resgatar
+msgid "Resgatar cashback"
+msgstr "Canjear cashback"
+
+msgid "Saldo total do cliente:"
+msgstr "Saldo total del cliente:"
+
+msgid "Disponivel nesta compra:"
+msgstr "Disponible en esta compra:"
+
+msgid "Valor a resgatar"
+msgstr "Monto a canjear"
+
+# ------------------------------------------------- confirmacao no fechamento
+msgid "falha ao confirmar o resgate"
+msgstr "fallo al confirmar el canje"

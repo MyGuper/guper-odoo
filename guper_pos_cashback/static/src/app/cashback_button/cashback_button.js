@@ -7,6 +7,7 @@ import { ControlButtons } from "@point_of_sale/app/screens/product_screen/contro
 import { makeAwaitable } from "@point_of_sale/app/utils/make_awaitable_dialog";
 import { _t } from "@web/core/l10n/translation";
 import { GuperPinPopup } from "@guper_pos_cashback/app/pin_popup/pin_popup";
+import { GuperAmountPopup } from "@guper_pos_cashback/app/amount_popup/amount_popup";
 
 patch(ControlButtons.prototype, {
     async onGuperCashback() {
@@ -45,10 +46,7 @@ patch(ControlButtons.prototype, {
             return;
         }
 
-        // 2) TODO(guper): popup para o caixa escolher o valor (0..redeemable).
-        const amount = redeemable;
-
-        // 3) PIN sempre exigido no resgate.
+        // 2) PIN sempre exigido no resgate.
         const ok = await makeAwaitable(this.dialog, GuperPinPopup, {
             orderUuid: order.uuid,
             call: (path, params) => this._guperCall(path, params),
@@ -60,9 +58,20 @@ patch(ControlButtons.prototype, {
             return;
         }
 
-        // 4) Resgate = DESCONTO por linha, usando o valor POR ITEM que o Guper
-        //    retorna (redeemable.item[].id/value). Vai no Descuento do CFDI, e o
-        //    desconto de cada linha fica igual ao que o Guper calculou.
+        // 3) Valor a resgatar: saldo total + disponivel + campo editavel
+        //    (default = resgatavel). Retorna centavos, ou null se cancelar.
+        const amount = await makeAwaitable(this.dialog, GuperAmountPopup, {
+            balanceCents: quote.balance_available || 0,
+            redeemableCents: redeemable,
+        });
+        if (!amount) {
+            return;
+        }
+
+        // 4) Desconto por linha, usando o valor POR ITEM do Guper
+        //    (redeemable.item[].id/value), escalado pelo valor escolhido
+        //    (fator = amount/redeemable; no default o fator e 1 = exato).
+        const factor = redeemable > 0 ? amount / redeemable : 0;
         const valueByItem = {};
         (quote.redeemable_items || []).forEach((it) => {
             valueByItem[String(it.id)] = it.value; // centavos
@@ -80,8 +89,7 @@ patch(ControlButtons.prototype, {
                 if (subtotal <= 0) {
                     return;
                 }
-                // % que resulta no Descuento = value (base = preco enviado ao Guper).
-                let pct = ((value / 100) / subtotal) * 100;
+                let pct = (((value * factor) / 100) / subtotal) * 100;
                 if (pct > 100) {
                     pct = 100;
                 }
