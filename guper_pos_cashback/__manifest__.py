@@ -1,6 +1,6 @@
 {
     'name': 'Guper POS Cashback',
-    'version': '18.0.1.0.0',
+    'version': '19.0.1.0.0',
     'summary': 'Geracao e resgate de cashback Guper no Point of Sale (com PIN por WhatsApp)',
     'author': 'Guper',
     'website': 'https://guper.co',
