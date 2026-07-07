@@ -60,30 +60,33 @@ patch(ControlButtons.prototype, {
             return;
         }
 
-        // 4) Resgate = DESCONTO distribuido nas linhas (correto p/ CFDI Mexico:
-        //    vai no campo Descuento de cada concepto, sem item negativo).
-        //    % sobre o total COM imposto -> o total cai exatamente o valor
-        //    resgatado, e o IVA recalcula proporcionalmente.
-        const grossTotal =
-            typeof order.getTotalWithTax === "function"
-                ? order.getTotalWithTax()
-                : order
-                      .getOrderlines()
-                      .reduce((s, l) => s + (l.price_unit || 0) * l.getQuantity(), 0);
-        if (grossTotal <= 0) {
-            this.notification.add(_t("Pedido sem valor para aplicar cashback."), {
-                type: "warning",
-            });
-            return;
-        }
-        let pct = ((amount / 100) / grossTotal) * 100;
-        if (pct > 100) {
-            pct = 100;
-        }
+        // 4) Resgate = DESCONTO por linha, usando o valor POR ITEM que o Guper
+        //    retorna (redeemable.item[].id/value). Vai no Descuento do CFDI, e o
+        //    desconto de cada linha fica igual ao que o Guper calculou.
+        const valueByItem = {};
+        (quote.redeemable_items || []).forEach((it) => {
+            valueByItem[String(it.id)] = it.value; // centavos
+        });
         order
             .getOrderlines()
             .filter((l) => l.getQuantity() > 0 && (l.price_unit || 0) >= 0)
-            .forEach((l) => l.setDiscount(pct));
+            .forEach((l) => {
+                const itemId = l.product_id?.default_code || String(l.product_id?.id);
+                const value = valueByItem[itemId]; // centavos de desconto do item
+                if (!value) {
+                    return;
+                }
+                const subtotal = (l.price_unit || 0) * l.getQuantity();
+                if (subtotal <= 0) {
+                    return;
+                }
+                // % que resulta no Descuento = value (base = preco enviado ao Guper).
+                let pct = ((value / 100) / subtotal) * 100;
+                if (pct > 100) {
+                    pct = 100;
+                }
+                l.setDiscount(pct);
+            });
         order.guper_redeem_amount = amount;
         this.notification.add(_t("Cashback aplicado."), { type: "success" });
     },

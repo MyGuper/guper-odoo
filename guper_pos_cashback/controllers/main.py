@@ -72,7 +72,9 @@ class GuperPosController(http.Controller):
         )
         this_order = (quote.get('cashback') or {}).get('thisOrder') or {}
         user_balance = (quote.get('cashback') or {}).get('userBalance') or {}
-        redeemable = (this_order.get('redeemable') or {}).get('total', 0)
+        redeemable_obj = this_order.get('redeemable') or {}
+        redeemable = redeemable_obj.get('total', 0)
+        redeemable_items = redeemable_obj.get('item') or []  # [{id, value}] em centavos
         available = user_balance.get('availableAmount', 0)
 
         if quote.get('customerId'):
@@ -90,13 +92,11 @@ class GuperPosController(http.Controller):
         })
         return {
             'redeemable_total': redeemable,
+            # desconto por item calculado pelo Guper (id do item -> value cents).
+            'redeemable_items': redeemable_items,
             'balance_available': available,
             'requires_pin': True,
             'pin_threshold': config.guper_pin_threshold or 0,
-            # id do produto de cashback vai na resposta (o front nao carrega
-            # esse campo da config). Fallback: produto padrao do modulo, para
-            # nao depender de config manual por loja/banco.
-            'cashback_product_id': self._guper_cashback_product_id(config),
         }
 
     # ----------------------------------------------------------- 2) gerar PIN
