@@ -20,7 +20,9 @@ class ResPartner(models.Model):
         houver guper_person_id cacheado, o resolve() usa direto o personId.
         """
         self.ensure_one()
-        cellphone = self._guper_digits(self.mobile or self.phone)
+        # Odoo 19 removeu res.partner.mobile (consolidado em phone). getattr
+        # mantem compatibilidade com a 18 (que ainda tem mobile).
+        cellphone = self._guper_digits(getattr(self, 'mobile', False) or self.phone)
         client = {}
         if self.guper_person_id:
             # personId inteiro tem prioridade (match direto).
