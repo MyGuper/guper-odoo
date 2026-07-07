@@ -29,8 +29,10 @@ patch(ControlButtons.prototype, {
                 items: this._guperItems(order),
             });
         } catch (e) {
-            this.notification.add(_t("Falha ao consultar cashback Guper."), {
+            // Mostra o erro real (do backend/Guper), fixo na tela, para depurar.
+            this.notification.add("Guper: " + (e.message || _t("erro desconhecido")), {
                 type: "danger",
+                sticky: true,
             });
             return;
         }
@@ -103,7 +105,12 @@ patch(ControlButtons.prototype, {
         });
         const data = await res.json();
         if (data.error) {
-            throw new Error(data.error.data?.message || data.error.message);
+            throw new Error(
+                data.error.data?.message ||
+                    data.error.data?.arguments?.[0] ||
+                    data.error.message ||
+                    "erro desconhecido"
+            );
         }
         return data.result;
     },
