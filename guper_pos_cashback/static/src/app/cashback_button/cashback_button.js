@@ -118,11 +118,13 @@ export class GuperCashbackButton extends Component {
                 continue;
             }
             const pct = (((value * factor) / 100) / gross) * 100;
+            console.log("[Guper v2] item", itemId, "base(c/imposto)=", gross, "desc%=", pct);
             addDiscount(l, pct);
             applied = true;
         }
         if (!applied) {
             const grossTotal = lines.reduce((s, l) => s + grossOf(l), 0);
+            console.log("[Guper v2] fallback base total(c/imposto)=", grossTotal);
             if (grossTotal > 0) {
                 const pct = ((amount / 100) / grossTotal) * 100;
                 lines.forEach((l) => addDiscount(l, pct));
