@@ -1,10 +1,10 @@
 /** @odoo-module **/
 import { Component } from "@odoo/owl";
 import { registry } from "@web/core/registry";
-import { usePos } from "@point_of_sale/app/store/pos_hook";
+import { usePos } from "@point_of_sale/app/hooks/pos_hook";
 import { useService } from "@web/core/utils/hooks";
 import { _t } from "@web/core/l10n/translation";
-import { makeAwaitable } from "@point_of_sale/app/store/make_awaitable_dialog";
+import { makeAwaitable } from "@point_of_sale/app/utils/make_awaitable_dialog";
 import { GuperPinPopup } from "@guper_pos_cashback/app/pin_popup/pin_popup";
 
 export class GuperCashbackButton extends Component {
