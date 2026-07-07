@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <templates id="template" xml:space="preserve">
     <t t-name="guper_pos_cashback.AmountPopup">
-        <Dialog title.translate="Canjear cashback">
-            <div class="guper-amount-popup">
+        <div class="popup guper-amount-popup" role="dialog">
+            <header class="title">Canjear cashback</header>
+            <main class="body">
                 <p>
                     <span class="text-muted">Saldo total del cliente:</span>
                     <strong class="ms-1" t-esc="balanceLabel"/>
@@ -21,12 +22,11 @@
                 <p t-if="!valid" class="text-danger mt-1">
                     Ingrese un monto entre 0 y <t t-esc="redeemableLabel"/>.
                 </p>
-            </div>
-            <t t-set-slot="footer">
-                <button class="btn btn-primary" t-on-click="onConfirm"
-                        t-att-disabled="!valid">Aplicar</button>
-                <button class="btn btn-link" t-on-click="onCancel">Cancelar</button>
-            </t>
-        </Dialog>
+            </main>
+            <footer class="footer">
+                <div class="button confirm highlight" t-on-click="confirm">Aplicar</div>
+                <div class="button cancel" t-on-click="cancel">Cancelar</div>
+            </footer>
+        </div>
     </t>
 </templates>

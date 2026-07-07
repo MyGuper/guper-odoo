@@ -1,61 +1,61 @@
 /** @odoo-module **/
+// Odoo 17: patch do PaymentScreen. API de pedido em snake_case; identificador
+// do pedido = order.name (= pos_reference no backend).
 import { patch } from "@web/core/utils/patch";
 import { PaymentScreen } from "@point_of_sale/app/screens/payment_screen/payment_screen";
 import { _t } from "@web/core/l10n/translation";
 
-// Commit do resgate/acumulo no FECHAMENTO (nao ao aplicar a linha de desconto),
-// para nao debitar saldo de um carrinho abandonado. Como o confirmToken tem
-// expiresAt curto, exige POS online. API do Odoo 19 (getPartner/getOrderlines).
 patch(PaymentScreen.prototype, {
     async validateOrder(isForceValidate) {
         const order = this.currentOrder;
+        const orderRef = order && (order.guper_order_ref || order.name || order.uid);
         const redeem = order?.guper_redeem_amount || 0;
-        const partner = order?.getPartner();
+        const partner = order?.get_partner();
 
         if (redeem > 0) {
-            // RESGATE: confirma o debito (confirmToken da sessao). NAO pode
-            // fechar sem confirmacao -> em caso de falha, aborta a validacao.
+            // RESGATE: confirma o debito. Nao pode fechar sem confirmacao.
             try {
                 await this._guperCall("/guper/redeem/confirm", {
-                    order_uuid: order.uuid,
+                    order_uuid: orderRef,
                     amount_to_redeem: redeem,
                 });
             } catch (e) {
                 this.env.services.notification.add(
                     "Guper: " + (e.message || _t("fallo al confirmar el canje")),
-                    { type: "danger", sticky: true }
+                    { type: "danger" }
                 );
                 return; // aborta a validacao
             }
         } else if (partner) {
-            // ACUMULO em tempo real: reward-by-order + confirmOrder(0) na hora.
-            // Nao bloqueia: se falhar (offline/erro), o cron assume depois.
+            // ACUMULO em tempo real; se falhar, o cron assume depois.
             try {
                 await this._guperCall("/guper/accrue", {
-                    order_uuid: order.uuid,
+                    order_uuid: orderRef,
                     config_id: this.pos.config.id,
                     partner_id: partner.id,
                     items: this._guperItems(order),
                 });
             } catch (e) {
-                // silencioso: fallback assincrono via _cron_guper_accruals
+                // silencioso: fallback via _cron_guper_accruals
             }
         }
         return super.validateOrder(isForceValidate);
     },
 
     _guperItems(order) {
-        // Exclui a linha de desconto de cashback (preco negativo). API 19.
         return order
-            .getOrderlines()
-            .filter((l) => l.getQuantity() > 0 && (l.price_unit || 0) >= 0)
-            .map((l) => ({
-                id: l.product_id?.default_code || String(l.product_id?.id),
-                name: l.product_id?.display_name,
-                quantity: Math.round(l.getQuantity()),
-                price: Math.round((l.price_unit || 0) * 100),
-                productId: String(l.product_id?.id),
-            }));
+            .get_orderlines()
+            .filter((l) => l.get_quantity() > 0 && (l.get_unit_price() || 0) >= 0)
+            .map((l) => {
+                const p = l.get_product();
+                return {
+                    id: p.default_code || String(p.id),
+                    name: p.display_name,
+                    quantity: Math.round(l.get_quantity()),
+                    price: Math.round((l.get_unit_price() || 0) * 100),
+                    productId: String(p.id),
+                };
+            });
     },
 
     async _guperCall(path, params) {

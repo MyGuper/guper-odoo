@@ -1,22 +1,15 @@
 /** @odoo-module **/
-import { Component, useState } from "@odoo/owl";
-import { Dialog } from "@web/core/dialog/dialog";
+import { AbstractAwaitablePopup } from "@point_of_sale/app/popup/abstract_awaitable_popup";
+import { useState } from "@odoo/owl";
 
-// Resolvido via makeAwaitable: getPayload = valor em centavos (ou null se cancela).
-export class GuperAmountPopup extends Component {
+export class GuperAmountPopup extends AbstractAwaitablePopup {
     static template = "guper_pos_cashback.AmountPopup";
-    static components = { Dialog };
-    static props = {
-        balanceCents: Number,
-        redeemableCents: Number,
-        getPayload: Function,
-        close: Function,
-    };
+    static defaultProps = { balanceCents: 0, redeemableCents: 0 };
 
     setup() {
+        super.setup();
         this.state = useState({
-            // valor em moeda; default = resgatavel neste pedido
-            amount: (this.props.redeemableCents / 100).toFixed(2),
+            amount: (this.props.redeemableCents / 100).toFixed(2), // moeda
         });
     }
 
@@ -42,16 +35,16 @@ export class GuperAmountPopup extends Component {
         return c > 0 && c <= this.props.redeemableCents;
     }
 
-    onConfirm() {
+    getPayload() {
+        return this.amountCents;
+    }
+
+    // Bloqueia o confirm se invalido; senao resolve com o valor em centavos.
+    confirm() {
         if (!this.valid) {
             return;
         }
-        this.props.getPayload(this.amountCents);
-        this.props.close();
-    }
-
-    onCancel() {
-        this.props.getPayload(null);
+        this.props.resolve({ confirmed: true, payload: this.getPayload() });
         this.props.close();
     }
 }

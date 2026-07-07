@@ -1,44 +1,58 @@
 /** @odoo-module **/
-// Odoo 19: control buttons nao usam registry. Adicionamos o botao ao
-// componente ControlButtons via patch e injetamos o markup no template
-// point_of_sale.ControlButtons via t-inherit (cashback_button.xml).
-import { patch } from "@web/core/utils/patch";
-import { ControlButtons } from "@point_of_sale/app/screens/product_screen/control_buttons/control_buttons";
-import { makeAwaitable } from "@point_of_sale/app/utils/make_awaitable_dialog";
+// Odoo 17: control button = componente proprio registrado via
+// ProductScreen.addControlButton. API de pedido/linha em snake_case.
+import { Component } from "@odoo/owl";
+import { ProductScreen } from "@point_of_sale/app/screens/product_screen/product_screen";
+import { usePos } from "@point_of_sale/app/store/pos_hook";
+import { useService } from "@web/core/utils/hooks";
 import { _t } from "@web/core/l10n/translation";
 import { GuperPinPopup } from "@guper_pos_cashback/app/pin_popup/pin_popup";
 import { GuperAmountPopup } from "@guper_pos_cashback/app/amount_popup/amount_popup";
 
-patch(ControlButtons.prototype, {
-    async onGuperCashback() {
-        const order = this.pos.getOrder();
-        const partner = order?.getPartner();
+export class GuperCashbackButton extends Component {
+    static template = "guper_pos_cashback.CashbackButton";
+
+    setup() {
+        this.pos = usePos();
+        this.popup = useService("popup");
+        this.notification = useService("notification");
+    }
+
+    // Identificador do pedido usado como chave em todo o fluxo (sessao,
+    // confirmOrder, e casamento no backend). Em 17 usamos order.name, que vira
+    // o pos_reference no backend.
+    _orderRef(order) {
+        return order.name || order.uid;
+    }
+
+    async onClick() {
+        const order = this.pos.get_order();
+        const partner = order && order.get_partner();
         if (!partner) {
             this.notification.add(_t("Seleccione el cliente antes del cashback."), {
                 type: "warning",
             });
             return;
         }
+        const orderRef = this._orderRef(order);
 
-        // 1) Cotacao: saldo + maximo resgatavel (reward-by-order server-side).
+        // 1) Cotacao
         let quote;
         try {
             quote = await this._guperCall("/guper/redeem/start", {
-                order_uuid: order.uuid,
+                order_uuid: orderRef,
                 config_id: this.pos.config.id,
                 partner_id: partner.id,
                 items: this._guperItems(order),
             });
         } catch (e) {
-            // Mostra o erro real (do backend/Guper), fixo na tela, para depurar.
             this.notification.add("Guper: " + (e.message || _t("error desconocido")), {
                 type: "danger",
-                sticky: true,
             });
             return;
         }
 
-        const redeemable = quote.redeemable_max || 0; // cap = min(resgatavel, saldo)
+        const redeemable = quote.redeemable_max || 0;
         if (redeemable <= 0) {
             this.notification.add(_t("Sin saldo canjeable en este pedido."), {
                 type: "info",
@@ -46,46 +60,44 @@ patch(ControlButtons.prototype, {
             return;
         }
 
-        // 2) PIN sempre exigido no resgate.
-        const ok = await makeAwaitable(this.dialog, GuperPinPopup, {
-            orderUuid: order.uuid,
+        // 2) PIN
+        const { confirmed: pinOk } = await this.popup.add(GuperPinPopup, {
+            orderUuid: orderRef,
             call: (path, params) => this._guperCall(path, params),
         });
-        if (!ok) {
+        if (!pinOk) {
             this.notification.add(_t("Canje cancelado (PIN no validado)."), {
                 type: "warning",
             });
             return;
         }
 
-        // 3) Valor a resgatar: saldo total + disponivel + campo editavel
-        //    (default = resgatavel). Retorna centavos, ou null se cancelar.
-        const amount = await makeAwaitable(this.dialog, GuperAmountPopup, {
-            balanceCents: quote.balance_total || 0, // saldo total do cliente
-            redeemableCents: redeemable, // disponivel nesta compra (cap)
+        // 3) Valor a resgatar
+        const { confirmed, payload: amount } = await this.popup.add(GuperAmountPopup, {
+            balanceCents: quote.balance_total || 0,
+            redeemableCents: redeemable,
         });
-        if (!amount) {
+        if (!confirmed || !amount) {
             return;
         }
 
-        // 4) Desconto por linha.
+        // 4) Desconto por linha (snake_case)
         const lines = order
-            .getOrderlines()
-            .filter((l) => l.getQuantity() > 0 && (l.price_unit || 0) >= 0);
-        const subtotalOf = (l) => (l.price_unit || 0) * l.getQuantity();
+            .get_orderlines()
+            .filter((l) => l.get_quantity() > 0 && (l.get_unit_price() || 0) >= 0);
+        const subtotalOf = (l) => (l.get_unit_price() || 0) * l.get_quantity();
 
-        // 4a) Preferencial: valor POR ITEM do Guper (redeemable.item[].id/value),
-        //     escalado pelo valor escolhido (fator = amount / resgatavel cheio).
         const rFull = quote.redeemable_full || redeemable;
         const factor = rFull > 0 ? amount / rFull : 0;
         const valueByItem = {};
         (quote.redeemable_items || []).forEach((it) => {
-            valueByItem[String(it.id)] = it.value; // centavos
+            valueByItem[String(it.id)] = it.value;
         });
 
         let applied = false;
         for (const l of lines) {
-            const itemId = l.product_id?.default_code || String(l.product_id?.id);
+            const p = l.get_product();
+            const itemId = p.default_code || String(p.id);
             const value = valueByItem[itemId];
             const subtotal = subtotalOf(l);
             if (!value || subtotal <= 0) {
@@ -95,12 +107,9 @@ patch(ControlButtons.prototype, {
             if (pct > 100) {
                 pct = 100;
             }
-            l.setDiscount(pct);
+            l.set_discount(pct);
             applied = true;
         }
-
-        // 4b) Fallback: Guper nao trouxe quebra por item (ou ids nao casaram)
-        //     -> distribui o valor escolhido proporcionalmente nas linhas.
         if (!applied) {
             const grossTotal = lines.reduce((s, l) => s + subtotalOf(l), 0);
             if (grossTotal > 0) {
@@ -108,28 +117,30 @@ patch(ControlButtons.prototype, {
                 if (pct > 100) {
                     pct = 100;
                 }
-                lines.forEach((l) => l.setDiscount(pct));
+                lines.forEach((l) => l.set_discount(pct));
             }
         }
 
         order.guper_redeem_amount = amount;
+        order.guper_order_ref = orderRef; // usado no fechamento
         this.notification.add(_t("Cashback aplicado."), { type: "success" });
-    },
+    }
 
     _guperItems(order) {
-        // Exclui a linha de desconto de cashback (preco negativo) sem precisar
-        // do id do produto no front.
         return order
-            .getOrderlines()
-            .filter((l) => l.getQuantity() > 0 && (l.price_unit || 0) >= 0)
-            .map((l) => ({
-                id: l.product_id?.default_code || String(l.product_id?.id),
-                name: l.product_id?.display_name,
-                quantity: Math.round(l.getQuantity()),
-                price: Math.round((l.price_unit || 0) * 100),
-                productId: String(l.product_id?.id),
-            }));
-    },
+            .get_orderlines()
+            .filter((l) => l.get_quantity() > 0 && (l.get_unit_price() || 0) >= 0)
+            .map((l) => {
+                const p = l.get_product();
+                return {
+                    id: p.default_code || String(p.id),
+                    name: p.display_name,
+                    quantity: Math.round(l.get_quantity()),
+                    price: Math.round((l.get_unit_price() || 0) * 100),
+                    productId: String(p.id),
+                };
+            });
+    }
 
     async _guperCall(path, params) {
         const res = await fetch(path, {
@@ -147,5 +158,7 @@ patch(ControlButtons.prototype, {
             );
         }
         return data.result;
-    },
-});
+    }
+}
+
+ProductScreen.addControlButton({ component: GuperCashbackButton });

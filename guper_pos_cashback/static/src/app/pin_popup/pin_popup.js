@@ -1,31 +1,26 @@
 /** @odoo-module **/
-import { Component, useState, onWillStart, onWillUnmount } from "@odoo/owl";
-import { Dialog } from "@web/core/dialog/dialog";
+// Odoo 17: popups estendem AbstractAwaitablePopup e sao abertos pelo servico
+// `popup` (this.popup.add(...) -> {confirmed, payload}).
+import { AbstractAwaitablePopup } from "@point_of_sale/app/popup/abstract_awaitable_popup";
+import { useState, onWillStart, onWillUnmount } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 import { _t } from "@web/core/l10n/translation";
 
 const MAX_ATTEMPTS = 3;
 
-// Resolvido via makeAwaitable (ver cashback_button): getPayload define o
-// resultado (true = PIN validado) e close() fecha o dialog.
-export class GuperPinPopup extends Component {
+export class GuperPinPopup extends AbstractAwaitablePopup {
     static template = "guper_pos_cashback.PinPopup";
-    static components = { Dialog };
-    static props = {
-        orderUuid: String,
-        call: Function, // (path, params) => Promise
-        getPayload: Function,
-        close: Function,
-    };
+    static defaultProps = { orderUuid: "", call: null };
 
     setup() {
+        super.setup();
         this.notification = useService("notification");
         this.state = useState({
             pin: "",
             attempts: 0,
             sentTo: "",
             channel: "",
-            remaining: 300, // 5 minutos
+            remaining: 300,
             busy: false,
         });
         this._timer = null;
@@ -65,7 +60,9 @@ export class GuperPinPopup extends Component {
     }
 
     _secondsUntil(iso) {
-        if (!iso) return 0;
+        if (!iso) {
+            return 0;
+        }
         const diff = (new Date(iso).getTime() - Date.now()) / 1000;
         return Math.max(0, Math.round(diff));
     }
@@ -75,7 +72,6 @@ export class GuperPinPopup extends Component {
     }
 
     get remainingLabel() {
-        // String/Math nao existem no contexto do template OWL -> formata aqui.
         const m = Math.floor(this.state.remaining / 60);
         const s = String(this.state.remaining % 60).padStart(2, "0");
         return `${m}:${s}`;
@@ -86,7 +82,9 @@ export class GuperPinPopup extends Component {
         await this._generate();
     }
 
-    async onConfirm() {
+    // Sobrescreve o confirm do AbstractAwaitablePopup: valida o PIN antes de
+    // fechar; se invalido, permanece aberto.
+    async confirm() {
         if (this.state.busy || this.state.pin.length !== 4) {
             return;
         }
@@ -97,7 +95,7 @@ export class GuperPinPopup extends Component {
                 pin: this.state.pin,
             });
             if (res.valid) {
-                this.props.getPayload(true);
+                this.props.resolve({ confirmed: true, payload: true });
                 this.props.close();
                 return;
             }
@@ -112,10 +110,5 @@ export class GuperPinPopup extends Component {
         } finally {
             this.state.busy = false;
         }
-    }
-
-    onCancel() {
-        this.props.getPayload(false);
-        this.props.close();
     }
 }
