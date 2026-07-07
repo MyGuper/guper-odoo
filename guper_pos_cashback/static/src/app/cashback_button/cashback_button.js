@@ -81,13 +81,25 @@ export class GuperCashbackButton extends Component {
             return;
         }
 
-        // 4) Desconto por linha (snake_case). O % e calculado sobre o total da
-        //    linha COM imposto (get_price_with_tax), para que o total do pedido
-        //    caia exatamente o valor resgatado (o IVA recalcula proporcional).
-        const lines = order
-            .get_orderlines()
-            .filter((l) => l.get_quantity() > 0 && l.get_price_with_tax() > 0);
-        const grossOf = (l) => l.get_price_with_tax();
+        // 4) Desconto por linha. O % e calculado sobre o total da linha COM
+        //    imposto (campo price_subtotal_incl = valor c/ imposto x qtd), para
+        //    o total do pedido cair exatamente o valor resgatado. E ADITIVO ao
+        //    desconto que a linha ja tiver (pricelist/promo).
+        const lines = order.get_orderlines().filter((l) => l.get_quantity() > 0);
+        const grossOf = (l) => {
+            if (l.price_subtotal_incl != null) {
+                return l.price_subtotal_incl;
+            }
+            if (typeof l.get_price_with_tax === "function") {
+                return l.get_price_with_tax();
+            }
+            return (l.get_unit_price() || 0) * l.get_quantity();
+        };
+        const addDiscount = (l, pct) => {
+            const existing =
+                typeof l.get_discount === "function" ? l.get_discount() : l.discount || 0;
+            l.set_discount(Math.min(100, existing + pct));
+        };
 
         const rFull = quote.redeemable_full || redeemable;
         const factor = rFull > 0 ? amount / rFull : 0;
@@ -105,22 +117,15 @@ export class GuperCashbackButton extends Component {
             if (!value || gross <= 0) {
                 continue;
             }
-            // value em centavos -> moeda; base = total da linha COM imposto.
-            let pct = (((value * factor) / 100) / gross) * 100;
-            if (pct > 100) {
-                pct = 100;
-            }
-            l.set_discount(pct);
+            const pct = (((value * factor) / 100) / gross) * 100;
+            addDiscount(l, pct);
             applied = true;
         }
         if (!applied) {
             const grossTotal = lines.reduce((s, l) => s + grossOf(l), 0);
             if (grossTotal > 0) {
-                let pct = ((amount / 100) / grossTotal) * 100;
-                if (pct > 100) {
-                    pct = 100;
-                }
-                lines.forEach((l) => l.set_discount(pct));
+                const pct = ((amount / 100) / grossTotal) * 100;
+                lines.forEach((l) => addDiscount(l, pct));
             }
         }
 
