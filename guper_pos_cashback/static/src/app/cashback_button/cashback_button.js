@@ -68,35 +68,50 @@ patch(ControlButtons.prototype, {
             return;
         }
 
-        // 4) Desconto por linha, usando o valor POR ITEM do Guper
-        //    (redeemable.item[].id/value), escalado pelo valor escolhido
-        //    (fator = amount/redeemable; no default o fator e 1 = exato).
-        // fator escala os valores por item (que somam o resgatavel CHEIO).
+        // 4) Desconto por linha.
+        const lines = order
+            .getOrderlines()
+            .filter((l) => l.getQuantity() > 0 && (l.price_unit || 0) >= 0);
+        const subtotalOf = (l) => (l.price_unit || 0) * l.getQuantity();
+
+        // 4a) Preferencial: valor POR ITEM do Guper (redeemable.item[].id/value),
+        //     escalado pelo valor escolhido (fator = amount / resgatavel cheio).
         const rFull = quote.redeemable_full || redeemable;
         const factor = rFull > 0 ? amount / rFull : 0;
         const valueByItem = {};
         (quote.redeemable_items || []).forEach((it) => {
             valueByItem[String(it.id)] = it.value; // centavos
         });
-        order
-            .getOrderlines()
-            .filter((l) => l.getQuantity() > 0 && (l.price_unit || 0) >= 0)
-            .forEach((l) => {
-                const itemId = l.product_id?.default_code || String(l.product_id?.id);
-                const value = valueByItem[itemId]; // centavos de desconto do item
-                if (!value) {
-                    return;
-                }
-                const subtotal = (l.price_unit || 0) * l.getQuantity();
-                if (subtotal <= 0) {
-                    return;
-                }
-                let pct = (((value * factor) / 100) / subtotal) * 100;
+
+        let applied = false;
+        for (const l of lines) {
+            const itemId = l.product_id?.default_code || String(l.product_id?.id);
+            const value = valueByItem[itemId];
+            const subtotal = subtotalOf(l);
+            if (!value || subtotal <= 0) {
+                continue;
+            }
+            let pct = (((value * factor) / 100) / subtotal) * 100;
+            if (pct > 100) {
+                pct = 100;
+            }
+            l.setDiscount(pct);
+            applied = true;
+        }
+
+        // 4b) Fallback: Guper nao trouxe quebra por item (ou ids nao casaram)
+        //     -> distribui o valor escolhido proporcionalmente nas linhas.
+        if (!applied) {
+            const grossTotal = lines.reduce((s, l) => s + subtotalOf(l), 0);
+            if (grossTotal > 0) {
+                let pct = ((amount / 100) / grossTotal) * 100;
                 if (pct > 100) {
                     pct = 100;
                 }
-                l.setDiscount(pct);
-            });
+                lines.forEach((l) => l.setDiscount(pct));
+            }
+        }
+
         order.guper_redeem_amount = amount;
         this.notification.add(_t("Cashback aplicado."), { type: "success" });
     },
