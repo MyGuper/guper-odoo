@@ -19,7 +19,7 @@ class GuperPosController(http.Controller):
             order_uuid, config_id=config_id)
 
     # ------------------------------------------ acumulo em tempo real (s/ resgate)
-    @http.route('/guper/accrue', type='json', auth='user')
+    @http.route('/guper/accrue', type='jsonrpc', auth='user')
     def accrue(self, order_uuid, config_id, partner_id, items):
         """Acumulo sincrono no fechamento para pedidos com cliente e SEM resgate.
         reward-by-order + confirmOrder(0) numa tacada. Se falhar (offline/erro),
@@ -50,7 +50,7 @@ class GuperPosController(http.Controller):
         return {'tid': res.get('TID')}
 
     # ----------------------------------------------------- 1) cotacao / saldo
-    @http.route('/guper/redeem/start', type='json', auth='user')
+    @http.route('/guper/redeem/start', type='jsonrpc', auth='user')
     def redeem_start(self, order_uuid, config_id, partner_id, items):
         """Chama reward-by-order, guarda confirmToken/customerId na sessao e
         devolve saldo + maximo resgatavel para o caixa."""
@@ -90,7 +90,7 @@ class GuperPosController(http.Controller):
         }
 
     # ----------------------------------------------------------- 2) gerar PIN
-    @http.route('/guper/pin/generate', type='json', auth='user')
+    @http.route('/guper/pin/generate', type='jsonrpc', auth='user')
     def pin_generate(self, order_uuid):
         sess = self._session(order_uuid)
         if not sess.customer_id:
@@ -105,7 +105,7 @@ class GuperPosController(http.Controller):
         }
 
     # --------------------------------------------------------- 3) validar PIN
-    @http.route('/guper/pin/validate', type='json', auth='user')
+    @http.route('/guper/pin/validate', type='jsonrpc', auth='user')
     def pin_validate(self, order_uuid, pin):
         sess = self._session(order_uuid)
         if not sess.customer_id:
@@ -116,7 +116,7 @@ class GuperPosController(http.Controller):
         return {'valid': valid}
 
     # ------------------------------------------------- 4) confirmar (commit)
-    @http.route('/guper/redeem/confirm', type='json', auth='user')
+    @http.route('/guper/redeem/confirm', type='jsonrpc', auth='user')
     def redeem_confirm(self, order_uuid, amount_to_redeem=0):
         """Efetiva acumulo + resgate. GATE: resgate > 0 exige PIN validado
         nesta sessao e respeita o limite/expiresAt do confirmToken."""
