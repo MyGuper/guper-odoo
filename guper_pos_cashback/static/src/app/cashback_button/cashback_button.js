@@ -81,11 +81,13 @@ export class GuperCashbackButton extends Component {
             return;
         }
 
-        // 4) Desconto por linha (snake_case)
+        // 4) Desconto por linha (snake_case). O % e calculado sobre o total da
+        //    linha COM imposto (get_price_with_tax), para que o total do pedido
+        //    caia exatamente o valor resgatado (o IVA recalcula proporcional).
         const lines = order
             .get_orderlines()
-            .filter((l) => l.get_quantity() > 0 && (l.get_unit_price() || 0) >= 0);
-        const subtotalOf = (l) => (l.get_unit_price() || 0) * l.get_quantity();
+            .filter((l) => l.get_quantity() > 0 && l.get_price_with_tax() > 0);
+        const grossOf = (l) => l.get_price_with_tax();
 
         const rFull = quote.redeemable_full || redeemable;
         const factor = rFull > 0 ? amount / rFull : 0;
@@ -99,11 +101,12 @@ export class GuperCashbackButton extends Component {
             const p = l.get_product();
             const itemId = p.default_code || String(p.id);
             const value = valueByItem[itemId];
-            const subtotal = subtotalOf(l);
-            if (!value || subtotal <= 0) {
+            const gross = grossOf(l);
+            if (!value || gross <= 0) {
                 continue;
             }
-            let pct = (((value * factor) / 100) / subtotal) * 100;
+            // value em centavos -> moeda; base = total da linha COM imposto.
+            let pct = (((value * factor) / 100) / gross) * 100;
             if (pct > 100) {
                 pct = 100;
             }
@@ -111,7 +114,7 @@ export class GuperCashbackButton extends Component {
             applied = true;
         }
         if (!applied) {
-            const grossTotal = lines.reduce((s, l) => s + subtotalOf(l), 0);
+            const grossTotal = lines.reduce((s, l) => s + grossOf(l), 0);
             if (grossTotal > 0) {
                 let pct = ((amount / 100) / grossTotal) * 100;
                 if (pct > 100) {
