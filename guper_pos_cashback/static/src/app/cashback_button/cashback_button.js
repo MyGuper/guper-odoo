@@ -78,12 +78,10 @@ patch(ControlButtons.prototype, {
     },
 
     _guperCashbackProduct() {
-        let p = this.pos.config.guper_cashback_product_id;
-        if (p && !p.id) {
-            // veio como id -> resolve o registro do produto
-            p = this.pos.models["product.product"].get(p);
-        }
-        return p || null;
+        // Recebe o id inteiro (guper_cashback_product_ref) e resolve o produto
+        // ja carregado no POS (available_in_pos=True).
+        const ref = this.pos.config.guper_cashback_product_ref;
+        return ref ? this.pos.models["product.product"].get(ref) : null;
     },
 
     _guperItems(order) {
