@@ -21,3 +21,10 @@ class PosConfig(models.Model):
         # storeId = id da loja na Odoo (pos.config), com override manual opcional.
         self.ensure_one()
         return self.guper_store_id or str(self.id)
+
+    def _load_pos_data_fields(self, *args):
+        # Odoo 19: expõe os campos custom da loja no front do POS.
+        return super()._load_pos_data_fields(*args) + [
+            'guper_store_id', 'guper_interface',
+            'guper_pin_threshold', 'guper_cashback_product_id',
+        ]

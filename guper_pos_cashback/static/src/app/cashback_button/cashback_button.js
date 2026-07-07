@@ -58,15 +58,36 @@ patch(ControlButtons.prototype, {
             return;
         }
 
-        // 4) TODO(guper): adicionar a linha de desconto (API de add product da 19
-        //    a confirmar no shell). Por ora guarda o valor; o confirmOrder ocorre
-        //    no fechamento (patch do PaymentScreen).
+        // 4) Linha de desconto = produto de cashback com preco negativo.
+        //    O confirmOrder (commit do resgate) ocorre no fechamento (PaymentScreen).
+        const product = this._guperCashbackProduct();
+        if (!product) {
+            this.notification.add(_t("Produto de cashback nao configurado na loja."), {
+                type: "danger",
+            });
+            return;
+        }
+        const line = await this.pos.addLineToCurrentOrder(
+            { product_id: product },
+            {},
+            false // configure=false: nao abre popup de configuracao
+        );
+        line?.setUnitPrice(-(amount / 100)); // amount em centavos -> moeda
         order.guper_redeem_amount = amount;
         this.notification.add(_t("Cashback aplicado."), { type: "success" });
     },
 
+    _guperCashbackProduct() {
+        let p = this.pos.config.guper_cashback_product_id;
+        if (p && !p.id) {
+            // veio como id -> resolve o registro do produto
+            p = this.pos.models["product.product"].get(p);
+        }
+        return p || null;
+    },
+
     _guperItems(order) {
-        const cashbackId = (this.pos.config.guper_cashback_product_id || [])[0];
+        const cashbackId = this._guperCashbackProduct()?.id;
         return order
             .getOrderlines()
             .filter((l) => l.product_id?.id !== cashbackId && l.getQuantity() > 0)
@@ -74,7 +95,7 @@ patch(ControlButtons.prototype, {
                 id: l.product_id?.default_code || String(l.product_id?.id),
                 name: l.product_id?.display_name,
                 quantity: Math.round(l.getQuantity()),
-                price: Math.round(l.getUnitPrice() * 100),
+                price: Math.round((l.price_unit || 0) * 100),
                 productId: String(l.product_id?.id),
             }));
     },
