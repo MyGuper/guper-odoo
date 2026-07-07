@@ -74,15 +74,19 @@ patch(ControlButtons.prototype, {
         const lines = order
             .getOrderlines()
             .filter((l) => l.getQuantity() > 0 && (l.price_unit || 0) >= 0);
+        // campo com imposto x quantidade; cai para metodo/liquido se ausente.
         const grossOf = (l) => {
-            if (typeof l.getPriceWithTax === "function") {
-                return l.getPriceWithTax();
-            }
             if (l.price_subtotal_incl != null) {
                 return l.price_subtotal_incl;
             }
-            return (l.price_unit || 0) * l.getQuantity(); // fallback (liquido)
+            if (typeof l.getPriceWithTax === "function") {
+                return l.getPriceWithTax();
+            }
+            return (l.price_unit || 0) * l.getQuantity();
         };
+        // desconto ADITIVO: soma ao que a linha ja tiver (nao substitui).
+        const addDiscount = (l, pct) =>
+            l.setDiscount(Math.min(100, (l.discount || 0) + pct));
 
         // 4a) Preferencial: valor POR ITEM do Guper (redeemable.item[].id/value),
         //     escalado pelo valor escolhido (fator = amount / resgatavel cheio).
@@ -101,11 +105,8 @@ patch(ControlButtons.prototype, {
             if (!value || gross <= 0) {
                 continue;
             }
-            let pct = (((value * factor) / 100) / gross) * 100;
-            if (pct > 100) {
-                pct = 100;
-            }
-            l.setDiscount(pct);
+            const pct = (((value * factor) / 100) / gross) * 100;
+            addDiscount(l, pct);
             applied = true;
         }
 
@@ -114,11 +115,8 @@ patch(ControlButtons.prototype, {
         if (!applied) {
             const grossTotal = lines.reduce((s, l) => s + grossOf(l), 0);
             if (grossTotal > 0) {
-                let pct = ((amount / 100) / grossTotal) * 100;
-                if (pct > 100) {
-                    pct = 100;
-                }
-                lines.forEach((l) => l.setDiscount(pct));
+                const pct = ((amount / 100) / grossTotal) * 100;
+                lines.forEach((l) => addDiscount(l, pct));
             }
         }
 
