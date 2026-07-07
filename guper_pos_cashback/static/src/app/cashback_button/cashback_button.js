@@ -60,24 +60,30 @@ patch(ControlButtons.prototype, {
             return;
         }
 
-        // 4) Linha de desconto = produto de cashback com preco negativo.
-        //    O id do produto vem na resposta do redeem/start (o front nao
-        //    carrega esse campo da config). O confirmOrder ocorre no fechamento.
-        const product = quote.cashback_product_id
-            ? this.pos.models["product.product"].get(quote.cashback_product_id)
-            : null;
-        if (!product) {
-            this.notification.add(_t("Produto de cashback nao configurado na loja."), {
-                type: "danger",
+        // 4) Resgate = DESCONTO distribuido nas linhas (correto p/ CFDI Mexico:
+        //    vai no campo Descuento de cada concepto, sem item negativo).
+        //    % sobre o total COM imposto -> o total cai exatamente o valor
+        //    resgatado, e o IVA recalcula proporcionalmente.
+        const grossTotal =
+            typeof order.getTotalWithTax === "function"
+                ? order.getTotalWithTax()
+                : order
+                      .getOrderlines()
+                      .reduce((s, l) => s + (l.price_unit || 0) * l.getQuantity(), 0);
+        if (grossTotal <= 0) {
+            this.notification.add(_t("Pedido sem valor para aplicar cashback."), {
+                type: "warning",
             });
             return;
         }
-        const line = await this.pos.addLineToCurrentOrder(
-            { product_id: product },
-            {},
-            false // configure=false: nao abre popup de configuracao
-        );
-        line?.setUnitPrice(-(amount / 100)); // amount em centavos -> moeda
+        let pct = ((amount / 100) / grossTotal) * 100;
+        if (pct > 100) {
+            pct = 100;
+        }
+        order
+            .getOrderlines()
+            .filter((l) => l.getQuantity() > 0 && (l.price_unit || 0) >= 0)
+            .forEach((l) => l.setDiscount(pct));
         order.guper_redeem_amount = amount;
         this.notification.add(_t("Cashback aplicado."), { type: "success" });
     },
