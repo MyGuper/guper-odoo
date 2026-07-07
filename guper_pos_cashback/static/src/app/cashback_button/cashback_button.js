@@ -1,25 +1,17 @@
 /** @odoo-module **/
-import { Component } from "@odoo/owl";
-import { registry } from "@web/core/registry";
-import { usePos } from "@point_of_sale/app/hooks/pos_hook";
-import { useService } from "@web/core/utils/hooks";
-import { _t } from "@web/core/l10n/translation";
+// Odoo 19: control buttons nao usam registry. Adicionamos o botao ao
+// componente ControlButtons via patch e injetamos o markup no template
+// point_of_sale.ControlButtons via t-inherit (cashback_button.xml).
+import { patch } from "@web/core/utils/patch";
+import { ControlButtons } from "@point_of_sale/app/screens/product_screen/control_buttons/control_buttons";
 import { makeAwaitable } from "@point_of_sale/app/utils/make_awaitable_dialog";
+import { _t } from "@web/core/l10n/translation";
 import { GuperPinPopup } from "@guper_pos_cashback/app/pin_popup/pin_popup";
 
-export class GuperCashbackButton extends Component {
-    static template = "guper_pos_cashback.CashbackButton";
-
-    setup() {
-        this.pos = usePos();
-        this.dialog = useService("dialog");
-        this.notification = useService("notification");
-        this.orm = useService("orm"); // usado para chamar os controllers via rpc-like
-    }
-
-    async onClick() {
-        const order = this.pos.get_order();
-        const partner = order.get_partner();
+patch(ControlButtons.prototype, {
+    async onGuperCashback() {
+        const order = this.pos.getOrder();
+        const partner = order?.getPartner();
         if (!partner) {
             this.notification.add(_t("Selecione o cliente antes do cashback."), {
                 type: "warning",
@@ -27,15 +19,14 @@ export class GuperCashbackButton extends Component {
             return;
         }
 
-        // 1) Cotacao: saldo + maximo resgatavel (server-side reward-by-order).
-        const items = this._buildItems(order);
+        // 1) Cotacao: saldo + maximo resgatavel (reward-by-order server-side).
         let quote;
         try {
-            quote = await this._call("/guper/redeem/start", {
+            quote = await this._guperCall("/guper/redeem/start", {
                 order_uuid: order.uuid,
                 config_id: this.pos.config.id,
                 partner_id: partner.id,
-                items,
+                items: this._guperItems(order),
             });
         } catch (e) {
             this.notification.add(_t("Falha ao consultar cashback Guper."), {
@@ -52,16 +43,13 @@ export class GuperCashbackButton extends Component {
             return;
         }
 
-        // 2) Cliente escolhe o valor a resgatar (0..redeemable), em centavos.
-        const amount = await this._askAmount(redeemable, quote.balance_available);
-        if (!amount) {
-            return;
-        }
+        // 2) TODO(guper): popup para o caixa escolher o valor (0..redeemable).
+        const amount = redeemable;
 
-        // 3) PIN sempre exigido no resgate: gera + valida via popup (5 min).
+        // 3) PIN sempre exigido no resgate.
         const ok = await makeAwaitable(this.dialog, GuperPinPopup, {
             orderUuid: order.uuid,
-            call: (path, params) => this._call(path, params),
+            call: (path, params) => this._guperCall(path, params),
         });
         if (!ok) {
             this.notification.add(_t("Resgate cancelado (PIN nao validado)."), {
@@ -70,36 +58,28 @@ export class GuperCashbackButton extends Component {
             return;
         }
 
-        // 4) Linha de desconto = -valor. O confirmOrder ocorre no fechamento.
-        const product = this.pos.db.get_product_by_id(
-            this.pos.config.guper_cashback_product_id[0]
-        );
-        order.add_product(product, { price: -(amount / 100), quantity: 1 });
-        order.guper_redeem_amount = amount; // centavos; consumido no pagamento
+        // 4) TODO(guper): adicionar a linha de desconto (API de add product da 19
+        //    a confirmar no shell). Por ora guarda o valor; o confirmOrder ocorre
+        //    no fechamento (patch do PaymentScreen).
+        order.guper_redeem_amount = amount;
         this.notification.add(_t("Cashback aplicado."), { type: "success" });
-    }
+    },
 
-    _buildItems(order) {
+    _guperItems(order) {
         const cashbackId = (this.pos.config.guper_cashback_product_id || [])[0];
         return order
-            .get_orderlines()
-            .filter((l) => l.product.id !== cashbackId && l.quantity > 0)
+            .getOrderlines()
+            .filter((l) => l.product_id?.id !== cashbackId && l.getQuantity() > 0)
             .map((l) => ({
-                id: l.product.default_code || String(l.product.id),
-                name: l.product.display_name,
-                quantity: Math.round(l.quantity),
-                price: Math.round(l.price * 100),
-                productId: String(l.product.id),
+                id: l.product_id?.default_code || String(l.product_id?.id),
+                name: l.product_id?.display_name,
+                quantity: Math.round(l.getQuantity()),
+                price: Math.round(l.getUnitPrice() * 100),
+                productId: String(l.product_id?.id),
             }));
-    }
+    },
 
-    async _askAmount(redeemable, balance) {
-        // TODO(guper): usar o NumberPopup/Dialog do build 18 instalado.
-        // Placeholder simples: resgata o maximo. Trocar por input de valor.
-        return redeemable;
-    }
-
-    async _call(path, params) {
+    async _guperCall(path, params) {
         const res = await fetch(path, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -110,12 +90,5 @@ export class GuperCashbackButton extends Component {
             throw new Error(data.error.data?.message || data.error.message);
         }
         return data.result;
-    }
-}
-
-// TODO(guper): confirmar o nome da categoria de botoes de controle no build 18
-// instalado (pode variar entre point-releases). Alternativas comuns:
-//   "pos_screen_control_buttons"  /  ProductScreen control buttons registry.
-registry.category("pos_screen_control_buttons").add("GuperCashbackButton", {
-    component: GuperCashbackButton,
+    },
 });
