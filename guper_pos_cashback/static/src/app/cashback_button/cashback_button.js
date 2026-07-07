@@ -59,8 +59,11 @@ patch(ControlButtons.prototype, {
         }
 
         // 4) Linha de desconto = produto de cashback com preco negativo.
-        //    O confirmOrder (commit do resgate) ocorre no fechamento (PaymentScreen).
-        const product = this._guperCashbackProduct();
+        //    O id do produto vem na resposta do redeem/start (o front nao
+        //    carrega esse campo da config). O confirmOrder ocorre no fechamento.
+        const product = quote.cashback_product_id
+            ? this.pos.models["product.product"].get(quote.cashback_product_id)
+            : null;
         if (!product) {
             this.notification.add(_t("Produto de cashback nao configurado na loja."), {
                 type: "danger",
@@ -77,18 +80,12 @@ patch(ControlButtons.prototype, {
         this.notification.add(_t("Cashback aplicado."), { type: "success" });
     },
 
-    _guperCashbackProduct() {
-        // Recebe o id inteiro (guper_cashback_product_ref) e resolve o produto
-        // ja carregado no POS (available_in_pos=True).
-        const ref = this.pos.config.guper_cashback_product_ref;
-        return ref ? this.pos.models["product.product"].get(ref) : null;
-    },
-
     _guperItems(order) {
-        const cashbackId = this._guperCashbackProduct()?.id;
+        // Exclui a linha de desconto de cashback (preco negativo) sem precisar
+        // do id do produto no front.
         return order
             .getOrderlines()
-            .filter((l) => l.product_id?.id !== cashbackId && l.getQuantity() > 0)
+            .filter((l) => l.getQuantity() > 0 && (l.price_unit || 0) >= 0)
             .map((l) => ({
                 id: l.product_id?.default_code || String(l.product_id?.id),
                 name: l.product_id?.display_name,

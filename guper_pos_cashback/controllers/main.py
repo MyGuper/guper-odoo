@@ -87,6 +87,9 @@ class GuperPosController(http.Controller):
             'balance_available': available,
             'requires_pin': True,
             'pin_threshold': config.guper_pin_threshold or 0,
+            # id do produto de cashback vai na resposta (o front nao carrega
+            # esse campo da config; evita mexer no load do POS da 19).
+            'cashback_product_id': config.guper_cashback_product_id.id or False,
         }
 
     # ----------------------------------------------------------- 2) gerar PIN
