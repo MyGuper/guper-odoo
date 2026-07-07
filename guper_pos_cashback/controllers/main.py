@@ -18,6 +18,12 @@ class GuperPosController(http.Controller):
         return request.env['guper.checkout.session'].sudo()._get_or_create(
             order_uuid, config_id=config_id)
 
+    def _guper_cashback_product_id(self, config):
+        # Produto da loja, ou o produto padrao criado pelo modulo.
+        product = config.guper_cashback_product_id or request.env.ref(
+            'guper_pos_cashback.product_guper_cashback', raise_if_not_found=False)
+        return product.id if product else False
+
     # ------------------------------------------ acumulo em tempo real (s/ resgate)
     @http.route('/guper/accrue', type='jsonrpc', auth='user')
     def accrue(self, order_uuid, config_id, partner_id, items):
@@ -88,8 +94,9 @@ class GuperPosController(http.Controller):
             'requires_pin': True,
             'pin_threshold': config.guper_pin_threshold or 0,
             # id do produto de cashback vai na resposta (o front nao carrega
-            # esse campo da config; evita mexer no load do POS da 19).
-            'cashback_product_id': config.guper_cashback_product_id.id or False,
+            # esse campo da config). Fallback: produto padrao do modulo, para
+            # nao depender de config manual por loja/banco.
+            'cashback_product_id': self._guper_cashback_product_id(config),
         }
 
     # ----------------------------------------------------------- 2) gerar PIN
