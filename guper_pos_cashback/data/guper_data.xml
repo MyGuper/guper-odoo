@@ -3,6 +3,25 @@
     <data noupdate="1">
         <!-- Produto usado como linha de desconto negativa do resgate.
              Ligue-o em cada pos.config (campo Guper Cashback). -->
+        <!-- Parametros globais (edite os valores em Config. Tecnicas > Parametros do Sistema).
+             guper.enabled ja nasce False = trava de seguranca (ver staging Odoo.sh). -->
+        <record id="guper_param_enabled" model="ir.config_parameter">
+            <field name="key">guper.enabled</field>
+            <field name="value">False</field>
+        </record>
+        <record id="guper_param_base_url" model="ir.config_parameter">
+            <field name="key">guper.base_url</field>
+            <field name="value"></field>
+        </record>
+        <record id="guper_param_apikey" model="ir.config_parameter">
+            <field name="key">guper.apikey</field>
+            <field name="value"></field>
+        </record>
+        <record id="guper_param_apisecret" model="ir.config_parameter">
+            <field name="key">guper.apisecret</field>
+            <field name="value"></field>
+        </record>
+
         <record id="product_guper_cashback" model="product.product">
             <field name="name">Cashback Guper</field>
             <field name="type">service</field>

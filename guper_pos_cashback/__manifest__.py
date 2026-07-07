@@ -12,7 +12,6 @@
         'data/guper_data.xml',
         'data/guper_cron.xml',
         'views/pos_config_views.xml',
-        'views/res_config_settings_views.xml',
     ],
     'assets': {
         # Bundle do POS no Odoo 17/18

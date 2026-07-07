@@ -35,10 +35,12 @@ padrao. Ligue-a **somente em producao**.
 
 ## Configuracao
 
-0. **Ajustes > POS > Guper API > "Guper ativo"**: `guper.enabled`. Desligado por
-   padrao; ligue apenas na producao. Com ele desligado, nenhum endpoint Guper e
-   chamado (crons saem quietos; chamadas diretas levantam erro claro).
-1. **Ajustes > POS > Guper API**: `base_url` (`https://{org}.myguper.com`), `apikey`, `apisecret`.
+0. **Config. Tecnicas > Parametros do Sistema** (os 4 ja sao semeados na instalacao):
+   - `guper.enabled` — `False` por padrao (trava de seguranca). Ligue (`True`) so na
+     producao. Desligado: nenhum endpoint Guper e chamado.
+   - `guper.base_url` — `https://{org}.myguper.com`
+   - `guper.apikey`, `guper.apisecret`
+   (Painel de Ajustes dedicado sera re-adicionado apos mapear a view de settings da 19.)
 2. **Cada POS (pos.config) > aba Guper**: `guper_store_id`, `guper_interface` (default `odoo`), `guper_pin_threshold` (0 = PIN sempre), `guper_cashback_product_id` (usar o produto "Cashback Guper" criado pelo modulo).
 
 Todos os valores monetarios em **centavos**.
