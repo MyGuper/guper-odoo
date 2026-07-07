@@ -73,9 +73,12 @@ class GuperPosController(http.Controller):
         this_order = (quote.get('cashback') or {}).get('thisOrder') or {}
         user_balance = (quote.get('cashback') or {}).get('userBalance') or {}
         redeemable_obj = this_order.get('redeemable') or {}
-        redeemable = redeemable_obj.get('total', 0)
-        redeemable_items = redeemable_obj.get('item') or []  # [{id, value}] em centavos
+        redeemable_full = redeemable_obj.get('total', 0)  # soma dos itens (p/ o fator)
+        redeemable_items = redeemable_obj.get('item') or []  # [{id, value}] centavos
         available = user_balance.get('availableAmount', 0)
+        balance_total = user_balance.get('total', available)
+        # Nao da pra resgatar mais que o saldo disponivel do cliente.
+        redeemable_max = min(redeemable_full, available)
 
         if quote.get('customerId'):
             partner._guper_cache_person(quote['customerId'])
@@ -86,15 +89,16 @@ class GuperPosController(http.Controller):
             'customer_id': str(quote.get('customerId') or partner.guper_person_id or ''),
             'confirm_token': quote.get('confirmToken'),
             'expires_at': self._parse_dt(quote.get('expiresAt')),
-            'redeemable_total': redeemable,
+            'redeemable_total': redeemable_max,  # cap real (usado pelo confirm)
             'balance_available': available,
             'pin_validated': False,
         })
         return {
-            'redeemable_total': redeemable,
+            'redeemable_max': redeemable_max,    # disponivel nesta compra (cap)
+            'redeemable_full': redeemable_full,  # soma dos itens (p/ o fator)
+            'balance_total': balance_total,      # saldo total do cliente
             # desconto por item calculado pelo Guper (id do item -> value cents).
             'redeemable_items': redeemable_items,
-            'balance_available': available,
             'requires_pin': True,
             'pin_threshold': config.guper_pin_threshold or 0,
         }

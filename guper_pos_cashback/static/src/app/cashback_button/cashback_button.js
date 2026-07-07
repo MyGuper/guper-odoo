@@ -38,7 +38,7 @@ patch(ControlButtons.prototype, {
             return;
         }
 
-        const redeemable = quote.redeemable_total || 0;
+        const redeemable = quote.redeemable_max || 0; // cap = min(resgatavel, saldo)
         if (redeemable <= 0) {
             this.notification.add(_t("Sem saldo resgatavel neste pedido."), {
                 type: "info",
@@ -61,8 +61,8 @@ patch(ControlButtons.prototype, {
         // 3) Valor a resgatar: saldo total + disponivel + campo editavel
         //    (default = resgatavel). Retorna centavos, ou null se cancelar.
         const amount = await makeAwaitable(this.dialog, GuperAmountPopup, {
-            balanceCents: quote.balance_available || 0,
-            redeemableCents: redeemable,
+            balanceCents: quote.balance_total || 0, // saldo total do cliente
+            redeemableCents: redeemable, // disponivel nesta compra (cap)
         });
         if (!amount) {
             return;
@@ -71,7 +71,9 @@ patch(ControlButtons.prototype, {
         // 4) Desconto por linha, usando o valor POR ITEM do Guper
         //    (redeemable.item[].id/value), escalado pelo valor escolhido
         //    (fator = amount/redeemable; no default o fator e 1 = exato).
-        const factor = redeemable > 0 ? amount / redeemable : 0;
+        // fator escala os valores por item (que somam o resgatavel CHEIO).
+        const rFull = quote.redeemable_full || redeemable;
+        const factor = rFull > 0 ? amount / rFull : 0;
         const valueByItem = {};
         (quote.redeemable_items || []).forEach((it) => {
             valueByItem[String(it.id)] = it.value; // centavos
