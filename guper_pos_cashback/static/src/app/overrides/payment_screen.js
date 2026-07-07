@@ -3,20 +3,17 @@ import { patch } from "@web/core/utils/patch";
 import { PaymentScreen } from "@point_of_sale/app/screens/payment_screen/payment_screen";
 import { _t } from "@web/core/l10n/translation";
 
-// Ponto de commit do resgate: confirmOrder no FECHAMENTO (nao ao aplicar a
-// linha de desconto), para evitar debitar saldo de um carrinho abandonado.
-// Como o confirmToken tem expiresAt curto, isto exige o POS online.
-// TODO(guper): confirmar o nome do hook de validacao no build 18 instalado.
-//   Em alguns point-releases e `validateOrder(isForceValidate)`, noutros o
-//   commit fica melhor em `_finalizeValidation()`. Ajustar conforme a fonte.
+// Commit do resgate/acumulo no FECHAMENTO (nao ao aplicar a linha de desconto),
+// para nao debitar saldo de um carrinho abandonado. Como o confirmToken tem
+// expiresAt curto, exige POS online. API do Odoo 19 (getPartner/getOrderlines).
 patch(PaymentScreen.prototype, {
     async validateOrder(isForceValidate) {
         const order = this.currentOrder;
         const redeem = order?.guper_redeem_amount || 0;
-        const partner = order?.get_partner();
+        const partner = order?.getPartner();
 
         if (redeem > 0) {
-            // RESGATE: confirma o debito (usa o confirmToken da sessao). NAO pode
+            // RESGATE: confirma o debito (confirmToken da sessao). NAO pode
             // fechar sem confirmacao -> em caso de falha, aborta a validacao.
             try {
                 await this._guperCall("/guper/redeem/confirm", {
@@ -25,8 +22,8 @@ patch(PaymentScreen.prototype, {
                 });
             } catch (e) {
                 this.env.services.notification.add(
-                    _t("Nao foi possivel confirmar o resgate. Verifique a conexao."),
-                    { type: "danger" }
+                    "Guper: " + (e.message || _t("falha ao confirmar o resgate")),
+                    { type: "danger", sticky: true }
                 );
                 return; // aborta a validacao
             }
@@ -48,16 +45,16 @@ patch(PaymentScreen.prototype, {
     },
 
     _guperItems(order) {
-        const cashbackId = (this.pos.config.guper_cashback_product_id || [])[0];
+        // Exclui a linha de desconto de cashback (preco negativo). API 19.
         return order
-            .get_orderlines()
-            .filter((l) => l.product.id !== cashbackId && l.quantity > 0)
+            .getOrderlines()
+            .filter((l) => l.getQuantity() > 0 && (l.price_unit || 0) >= 0)
             .map((l) => ({
-                id: l.product.default_code || String(l.product.id),
-                name: l.product.display_name,
-                quantity: Math.round(l.quantity),
-                price: Math.round(l.price * 100),
-                productId: String(l.product.id),
+                id: l.product_id?.default_code || String(l.product_id?.id),
+                name: l.product_id?.display_name,
+                quantity: Math.round(l.getQuantity()),
+                price: Math.round((l.price_unit || 0) * 100),
+                productId: String(l.product_id?.id),
             }));
     },
 
@@ -69,7 +66,12 @@ patch(PaymentScreen.prototype, {
         });
         const data = await res.json();
         if (data.error) {
-            throw new Error(data.error.data?.message || data.error.message);
+            throw new Error(
+                data.error.data?.message ||
+                    data.error.data?.arguments?.[0] ||
+                    data.error.message ||
+                    "erro desconhecido"
+            );
         }
         return data.result;
     },
