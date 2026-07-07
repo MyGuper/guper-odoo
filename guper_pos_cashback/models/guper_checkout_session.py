@@ -34,11 +34,11 @@ class GuperCheckoutSession(models.Model):
     accumulated = fields.Integer(help="cashback.accumulatedOrder (centavos)")
     confirmed = fields.Boolean(default=False)
 
-    # Odoo 19: _sql_constraints foi substituido por models.Constraint.
-    _order_user_uniq = models.Constraint(
-        'unique(order_uuid, user_id)',
-        "Ya existe una sesión Guper para este pedido/usuario.",
-    )
+    # Odoo 17: usa _sql_constraints (models.Constraint so a partir da 17.4/18).
+    _sql_constraints = [
+        ('order_user_uniq', 'unique(order_uuid, user_id)',
+         "Ya existe una sesión Guper para este pedido/usuario."),
+    ]
 
     @api.model
     def _get_or_create(self, order_uuid, config_id=False):
