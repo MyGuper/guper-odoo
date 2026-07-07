@@ -68,11 +68,21 @@ patch(ControlButtons.prototype, {
             return;
         }
 
-        // 4) Desconto por linha.
+        // 4) Desconto por linha. A base do % e o total da linha COM imposto,
+        //    para o total do pedido cair exatamente o valor resgatado (o IVA
+        //    recalcula). grossOf e robusto a variacoes de API da 19.
         const lines = order
             .getOrderlines()
             .filter((l) => l.getQuantity() > 0 && (l.price_unit || 0) >= 0);
-        const subtotalOf = (l) => (l.price_unit || 0) * l.getQuantity();
+        const grossOf = (l) => {
+            if (typeof l.getPriceWithTax === "function") {
+                return l.getPriceWithTax();
+            }
+            if (l.price_subtotal_incl != null) {
+                return l.price_subtotal_incl;
+            }
+            return (l.price_unit || 0) * l.getQuantity(); // fallback (liquido)
+        };
 
         // 4a) Preferencial: valor POR ITEM do Guper (redeemable.item[].id/value),
         //     escalado pelo valor escolhido (fator = amount / resgatavel cheio).
@@ -87,11 +97,11 @@ patch(ControlButtons.prototype, {
         for (const l of lines) {
             const itemId = l.product_id?.default_code || String(l.product_id?.id);
             const value = valueByItem[itemId];
-            const subtotal = subtotalOf(l);
-            if (!value || subtotal <= 0) {
+            const gross = grossOf(l);
+            if (!value || gross <= 0) {
                 continue;
             }
-            let pct = (((value * factor) / 100) / subtotal) * 100;
+            let pct = (((value * factor) / 100) / gross) * 100;
             if (pct > 100) {
                 pct = 100;
             }
@@ -102,7 +112,7 @@ patch(ControlButtons.prototype, {
         // 4b) Fallback: Guper nao trouxe quebra por item (ou ids nao casaram)
         //     -> distribui o valor escolhido proporcionalmente nas linhas.
         if (!applied) {
-            const grossTotal = lines.reduce((s, l) => s + subtotalOf(l), 0);
+            const grossTotal = lines.reduce((s, l) => s + grossOf(l), 0);
             if (grossTotal > 0) {
                 let pct = ((amount / 100) / grossTotal) * 100;
                 if (pct > 100) {
