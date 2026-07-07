@@ -107,25 +107,24 @@ patch(Order.prototype, {
             return;
         }
 
-        // 2c) Con saldo -> PIN -> monto -> descuento.
+        // 2c) Con saldo -> primero MONTO (ver saldo y decidir si redimir),
+        //     luego PIN, y recien aplica el descuento.
+        const { confirmed, payload: amount } = await popup.add(GuperAmountPopup, {
+            balanceCents: quote.balance_total || 0,
+            redeemableCents: redeemable,
+        });
+        if (!confirmed || !amount) {
+            // No quiso redimir -> solo acumula.
+            notification.add("Acumulará " + this._guperFmt(accumulating), { type: "info" });
+            return;
+        }
         const { confirmed: pinOk } = await popup.add(GuperPinPopup, {
             orderUuid: orderRef,
             call: (path, params) => this._guperCall(path, params),
         });
         if (!pinOk) {
             notification.add(
-                "Canje cancelado. Acumulará " + this._guperFmt(accumulating),
-                { type: "info" }
-            );
-            return;
-        }
-        const { confirmed, payload: amount } = await popup.add(GuperAmountPopup, {
-            balanceCents: quote.balance_total || 0,
-            redeemableCents: redeemable,
-        });
-        if (!confirmed || !amount) {
-            notification.add(
-                "Canje cancelado. Acumulará " + this._guperFmt(accumulating),
+                "Canje cancelado (PIN). Acumulará " + this._guperFmt(accumulating),
                 { type: "info" }
             );
             return;
