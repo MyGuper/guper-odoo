@@ -9,17 +9,17 @@ class PosOrder(models.Model):
     _inherit = 'pos.order'
 
     guper_accrual_state = fields.Selection(
-        [('pending', 'Pendente'), ('sent', 'Enviado'), ('error', 'Erro')],
-        string="Guper - Acumulo", copy=False)
+        [('pending', 'Pendiente'), ('sent', 'Enviado'), ('error', 'Error')],
+        string="Guper - Acumulación", copy=False)
     guper_redeem_ref = fields.Char(
         string="Guper - TID", copy=False, index=True,
-        help="TID retornado pelo confirmOrder (acumulo/resgate efetivado).")
+        help="TID retornado por confirmOrder (acumulación/canje efectuado).")
     guper_accumulated = fields.Integer(
         string="Guper - Acumulado (centavos)", copy=False)
     guper_cancel_state = fields.Selection(
-        [('pending', 'Pendente'), ('done', 'Cancelado'), ('error', 'Erro')],
-        string="Guper - Cancelamento", copy=False,
-        help="Estado do estorno no Guper para pedidos de devolucao (refund).")
+        [('pending', 'Pendiente'), ('done', 'Cancelado'), ('error', 'Error')],
+        string="Guper - Cancelación", copy=False,
+        help="Estado del reverso en Guper para pedidos de devolución (refund).")
 
     _PAID_STATES = ('paid', 'done', 'invoiced')
 

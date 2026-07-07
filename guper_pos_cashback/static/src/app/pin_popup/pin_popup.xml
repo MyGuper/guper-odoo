@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <templates id="template" xml:space="preserve">
     <t t-name="guper_pos_cashback.PinPopup">
-        <Dialog title.translate="Validacao por PIN">
+        <Dialog title.translate="Validación por PIN">
             <div class="guper-pin-popup">
                 <p t-if="state.sentTo">
-                    Enviamos um PIN por <t t-esc="state.channel"/> para
+                    Enviamos un PIN por <t t-esc="state.channel"/> a
                     <strong t-esc="state.sentTo"/>.
                 </p>
                 <div class="input-group my-2">
@@ -16,11 +16,11 @@
                 </div>
                 <p class="text-muted">
                     <t t-if="!expired">
-                        Expira em <t t-esc="remainingLabel"/>
+                        Expira en <t t-esc="remainingLabel"/>
                     </t>
                     <t t-else="">PIN expirado.</t>
                     <span t-if="state.attempts">
-                        · Tentativas: <t t-esc="state.attempts"/>/3
+                        · Intentos: <t t-esc="state.attempts"/>/3
                     </span>
                 </p>
             </div>

@@ -22,7 +22,7 @@ patch(PaymentScreen.prototype, {
                 });
             } catch (e) {
                 this.env.services.notification.add(
-                    "Guper: " + (e.message || _t("falha ao confirmar o resgate")),
+                    "Guper: " + (e.message || _t("fallo al confirmar el canje")),
                     { type: "danger", sticky: true }
                 );
                 return; // aborta a validacao
@@ -70,7 +70,7 @@ patch(PaymentScreen.prototype, {
                 data.error.data?.message ||
                     data.error.data?.arguments?.[0] ||
                     data.error.message ||
-                    "erro desconhecido"
+                    "error desconocido"
             );
         }
         return data.result;

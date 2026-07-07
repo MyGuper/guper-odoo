@@ -40,12 +40,12 @@ class GuperClient(models.AbstractModel):
     def _check_enabled(self):
         if not self.enabled():
             raise UserError(_(
-                "Integracao Guper desativada (guper.enabled = False)."))
+                "Integración Guper desactivada (guper.enabled = False)."))
 
     def _base(self):
         base = self._icp().get_param('guper.base_url')
         if not base:
-            raise UserError(_("Parametro 'guper.base_url' nao configurado."))
+            raise UserError(_("Parámetro 'guper.base_url' no configurado."))
         return base.rstrip('/')
 
     def _token(self):

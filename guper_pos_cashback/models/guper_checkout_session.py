@@ -18,26 +18,26 @@ class GuperCheckoutSession(models.Model):
     config_id = fields.Many2one('pos.config')
     partner_id = fields.Many2one('res.partner')
 
-    customer_id = fields.Char(help="personId resolvido pelo reward-by-order")
+    customer_id = fields.Char(help="personId resuelto por reward-by-order")
     confirm_token = fields.Char()
-    expires_at = fields.Datetime(help="expiresAt do confirmToken")
+    expires_at = fields.Datetime(help="expiresAt del confirmToken")
 
-    redeemable_total = fields.Integer(help="Maximo resgatavel neste pedido (centavos)")
-    balance_available = fields.Integer(help="Saldo disponivel do cliente (centavos)")
+    redeemable_total = fields.Integer(help="Máximo canjeable en este pedido (centavos)")
+    balance_available = fields.Integer(help="Saldo disponible del cliente (centavos)")
 
     pin_validated = fields.Boolean(default=False)
-    pin_expires_at = fields.Datetime(help="expiresAt do ultimo PIN gerado")
+    pin_expires_at = fields.Datetime(help="expiresAt del último PIN generado")
 
     # Resultado do confirmOrder feito em tempo real (acumulo e/ou resgate).
     # O pos.order estampa esses valores quando sincroniza (via uuid).
-    tid = fields.Char(help="TID retornado pelo confirmOrder")
+    tid = fields.Char(help="TID retornado por confirmOrder")
     accumulated = fields.Integer(help="cashback.accumulatedOrder (centavos)")
     confirmed = fields.Boolean(default=False)
 
     # Odoo 19: _sql_constraints foi substituido por models.Constraint.
     _order_user_uniq = models.Constraint(
         'unique(order_uuid, user_id)',
-        "Ja existe uma sessao Guper para este pedido/usuario.",
+        "Ya existe una sesión Guper para este pedido/usuario.",
     )
 
     @api.model

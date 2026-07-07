@@ -107,7 +107,7 @@ class GuperPosController(http.Controller):
     def pin_generate(self, order_uuid):
         sess = self._session(order_uuid)
         if not sess.customer_id:
-            raise UserError(_("Cliente Guper nao resolvido para este pedido."))
+            raise UserError(_("Cliente Guper no resuelto para este pedido."))
         res = self._client().generate_pin(person_id=sess.customer_id)
         sess.pin_expires_at = self._parse_dt(res.get('expiresAt'))
         # Nao expoe o PIN (nunca retornado); so canal e destino mascarado.
@@ -122,7 +122,7 @@ class GuperPosController(http.Controller):
     def pin_validate(self, order_uuid, pin):
         sess = self._session(order_uuid)
         if not sess.customer_id:
-            raise UserError(_("Cliente Guper nao resolvido para este pedido."))
+            raise UserError(_("Cliente Guper no resuelto para este pedido."))
         valid = self._client().validate_pin(person_id=sess.customer_id, pin=pin)
         if valid:
             sess.pin_validated = True
@@ -137,15 +137,15 @@ class GuperPosController(http.Controller):
         amount = int(amount_to_redeem or 0)
 
         if not sess.confirm_token:
-            raise UserError(_("Sessao Guper sem confirmToken (rode redeem/start)."))
+            raise UserError(_("Sesión Guper sin confirmToken (ejecute redeem/start)."))
         if sess.expires_at and fields.Datetime.now() > sess.expires_at:
-            raise UserError(_("Cotacao Guper expirada. Refaca o resgate."))
+            raise UserError(_("Cotización Guper expirada. Rehaga el canje."))
 
         if amount > 0:
             if amount > (sess.redeemable_total or 0):
-                raise UserError(_("Valor de resgate acima do permitido."))
+                raise UserError(_("Monto de canje por encima del permitido."))
             if not sess.pin_validated:
-                raise AccessError(_("Resgate exige PIN validado."))
+                raise AccessError(_("El canje requiere PIN validado."))
 
         res = self._client().confirm_order(
             confirm_token=sess.confirm_token,

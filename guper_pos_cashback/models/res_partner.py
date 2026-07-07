@@ -8,7 +8,7 @@ class ResPartner(models.Model):
 
     guper_person_id = fields.Char(
         string="Guper Person ID", index=True, copy=False,
-        help="Cache do personId do Guper resolvido pelo celular/documento.")
+        help="Caché del personId de Guper resuelto por el celular/documento.")
 
     def _guper_digits(self, value):
         return re.sub(r'\D', '', value or '')

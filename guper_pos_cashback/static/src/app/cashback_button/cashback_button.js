@@ -14,7 +14,7 @@ patch(ControlButtons.prototype, {
         const order = this.pos.getOrder();
         const partner = order?.getPartner();
         if (!partner) {
-            this.notification.add(_t("Selecione o cliente antes do cashback."), {
+            this.notification.add(_t("Seleccione el cliente antes del cashback."), {
                 type: "warning",
             });
             return;
@@ -31,7 +31,7 @@ patch(ControlButtons.prototype, {
             });
         } catch (e) {
             // Mostra o erro real (do backend/Guper), fixo na tela, para depurar.
-            this.notification.add("Guper: " + (e.message || _t("erro desconhecido")), {
+            this.notification.add("Guper: " + (e.message || _t("error desconocido")), {
                 type: "danger",
                 sticky: true,
             });
@@ -40,7 +40,7 @@ patch(ControlButtons.prototype, {
 
         const redeemable = quote.redeemable_max || 0; // cap = min(resgatavel, saldo)
         if (redeemable <= 0) {
-            this.notification.add(_t("Sem saldo resgatavel neste pedido."), {
+            this.notification.add(_t("Sin saldo canjeable en este pedido."), {
                 type: "info",
             });
             return;
@@ -52,7 +52,7 @@ patch(ControlButtons.prototype, {
             call: (path, params) => this._guperCall(path, params),
         });
         if (!ok) {
-            this.notification.add(_t("Resgate cancelado (PIN nao validado)."), {
+            this.notification.add(_t("Canje cancelado (PIN no validado)."), {
                 type: "warning",
             });
             return;
@@ -143,7 +143,7 @@ patch(ControlButtons.prototype, {
                 data.error.data?.message ||
                     data.error.data?.arguments?.[0] ||
                     data.error.message ||
-                    "erro desconhecido"
+                    "error desconocido"
             );
         }
         return data.result;
