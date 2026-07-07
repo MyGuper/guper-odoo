@@ -112,7 +112,7 @@ class GuperClient(models.AbstractModel):
             body['checkoutId'] = checkout_id
         if attendants:
             body['attendants'] = attendants
-        return self._post('/api/loyalty/checkout/reward-by-order', body)
+        return self._post('/api/loyalty/rewardByOrder', body)
 
     def confirm_order(self, *, confirm_token, order_id, amount_to_redeem=0,
                       payments=None, client=None, wait_settlement=False):
