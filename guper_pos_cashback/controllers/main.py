@@ -140,6 +140,11 @@ class GuperPosController(http.Controller):
         sess = self._session(order_uuid)
         amount = int(amount_to_redeem or 0)
 
+        # Idempotente: si ya se confirmo, no repetir (evita 409 en doble cierre).
+        if sess.confirmed:
+            return {'tid': sess.tid or False, 'accumulated': sess.accumulated or 0,
+                    'already': True}
+
         if not sess.confirm_token:
             raise UserError(_("Sesión Guper sin confirmToken (ejecute redeem/start)."))
         if sess.expires_at and fields.Datetime.now() > sess.expires_at:

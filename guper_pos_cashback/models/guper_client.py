@@ -125,7 +125,13 @@ class GuperClient(models.AbstractModel):
             body['client'] = client
         if payments:
             body['payments'] = payments
-        return self._post(f"/api/loyalty/confirmOrder/{confirm_token}", body)
+        try:
+            return self._post(f"/api/loyalty/confirmOrder/{confirm_token}", body)
+        except requests.HTTPError as exc:
+            # 409 = ya confirmado; tratamos como exito idempotente.
+            if exc.response is not None and exc.response.status_code == 409:
+                return {'already_confirmed': True}
+            raise
 
     def transaction_by_order(self, *, interface, order_ref):
         """Busca as transacoes de um pedido pelo refId externo (nosso
