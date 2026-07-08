@@ -13,36 +13,41 @@ class ResPartner(models.Model):
     def _guper_digits(self, value):
         return re.sub(r'\D', '', value or '')
 
-    def _guper_client_dict(self):
+    def _guper_client_dict(self, id_field='phone'):
         """Monta o objeto `client` do reward-by-order a partir do partner.
 
-        O documento e a chave primaria de match; celular e email ajudam. Se ja
-        houver guper_person_id cacheado, o resolve() usa direto o personId.
+        id_field ('phone'|'email'|'document') define QUAL campo e enviado como
+        identificador principal (configuravel por loja). name/id vao junto para
+        criar a pessoa se nao existir. Se ja houver guper_person_id cacheado,
+        retorna direto o personId (match direto).
         """
         self.ensure_one()
-        # Odoo 19 removeu res.partner.mobile (consolidado em phone). getattr
-        # mantem compatibilidade com a 18 (que ainda tem mobile).
-        cellphone = self._guper_digits(getattr(self, 'mobile', False) or self.phone)
-        client = {}
         if self.guper_person_id:
-            # personId inteiro tem prioridade (match direto).
             try:
                 return int(self.guper_person_id)
             except (ValueError, TypeError):
                 pass
+
+        # Valor do campo identificador configurado.
+        if id_field == 'email':
+            key, value = 'email', (self.email or '').strip().lower()
+        elif id_field == 'document':
+            # TODO(guper): usar o campo l10n da instancia (RFC/CURP) se aplicar.
+            key, value = 'document', self._guper_digits(self.vat)
+        else:  # phone (padrao) - Odoo 19 removeu mobile; getattr compat com 18.
+            key = 'cellphone'
+            value = self._guper_digits(getattr(self, 'mobile', False) or self.phone)
+
+        if not value:
+            # Sem o campo identificador preenchido -> nao da pra identificar.
+            return None
+
+        client = {key: value}
         if self.ref:
             client['id'] = self.ref
         if self.name:
             client['name'] = self.name
-        # TODO(guper): mapear o campo de documento fiscal (l10n_*/vat) da instancia.
-        if self.vat:
-            client['document'] = self._guper_digits(self.vat)
-        if self.email:
-            client['email'] = self.email.lower()
-        if cellphone:
-            client['cellphone'] = cellphone
-            # TODO(guper): countryCallingCode herdado da org se omitido; ajustar se multi-pais.
-        return client or None
+        return client
 
     def _guper_cache_person(self, person_id):
         if person_id and str(person_id) != (self.guper_person_id or ''):

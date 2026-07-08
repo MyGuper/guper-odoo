@@ -36,7 +36,7 @@ class GuperPosController(http.Controller):
             store_id=config._guper_store_id(),
             interface=config.guper_interface or 'odoo',
             items=items,
-            client=partner._guper_client_dict(),
+            client=partner._guper_client_dict(config.guper_client_id_field),
             checkout_id=order_uuid,
         )
         if quote.get('customerId'):
@@ -58,34 +58,41 @@ class GuperPosController(http.Controller):
     # ----------------------------------------------------- 1) cotacao / saldo
     @http.route('/guper/redeem/start', type='jsonrpc', auth='user')
     def redeem_start(self, order_uuid, config_id, partner_id, items):
-        """Chama reward-by-order, guarda confirmToken/customerId na sessao e
-        devolve saldo + maximo resgatavel para o caixa."""
+        """reward-by-order (cliente ou anonimo), guarda o confirmToken na sessao
+        e devolve saldo/resgatavel + acumulacao. Chamado no clique em Pagar."""
         config = request.env['pos.config'].browse(int(config_id))
-        partner = request.env['res.partner'].browse(int(partner_id))
+        partner = (request.env['res.partner'].browse(int(partner_id))
+                   if partner_id else request.env['res.partner'])
+        client = (partner._guper_client_dict(config.guper_client_id_field)
+                  if partner else None)  # None = anonimo
+        # cliente seleccionado pero SIN el campo identificador -> no acumula.
+        missing_id = bool(partner) and client is None
 
         quote = self._client().reward_by_order(
             store_id=config._guper_store_id(),
             interface=config.guper_interface or 'odoo',
             items=items,
-            client=partner._guper_client_dict(),
+            client=client,
             checkout_id=order_uuid,
         )
         this_order = (quote.get('cashback') or {}).get('thisOrder') or {}
         user_balance = (quote.get('cashback') or {}).get('userBalance') or {}
         redeemable_obj = this_order.get('redeemable') or {}
-        # thisOrder.redeemable = quanto o cliente pode usar NESTA compra (ja e o cap).
-        redeemable_full = redeemable_obj.get('total', 0)
+        accumulating_obj = this_order.get('accumulating') or {}
+        redeemable_full = redeemable_obj.get('total', 0)  # usavel nesta compra
         redeemable_items = redeemable_obj.get('item') or []  # [{id, value}] centavos
-        balance_total = user_balance.get('total', 0)  # saldo total do cliente
+        accumulating = accumulating_obj.get('total', 0)  # o que vai acumular
+        balance_total = user_balance.get('total', 0)
         redeemable_max = redeemable_full
 
-        if quote.get('customerId'):
+        if partner and quote.get('customerId'):
             partner._guper_cache_person(quote['customerId'])
 
         sess = self._session(order_uuid, config_id=config.id)
         sess.write({
-            'partner_id': partner.id,
-            'customer_id': str(quote.get('customerId') or partner.guper_person_id or ''),
+            'partner_id': partner.id if partner else False,
+            'customer_id': str(quote.get('customerId')
+                               or (partner.guper_person_id if partner else '') or ''),
             'confirm_token': quote.get('confirmToken'),
             'expires_at': self._parse_dt(quote.get('expiresAt')),
             'redeemable_total': redeemable_max,  # cap real (usado pelo confirm)
@@ -96,9 +103,10 @@ class GuperPosController(http.Controller):
             'redeemable_max': redeemable_max,    # disponivel nesta compra (cap)
             'redeemable_full': redeemable_full,  # soma dos itens (p/ o fator)
             'balance_total': balance_total,      # saldo total do cliente
-            # desconto por item calculado pelo Guper (id do item -> value cents).
+            'accumulating': accumulating,        # o que a compra vai acumular
+            'is_anonymous': not bool(partner),   # sem cliente selecionado
+            'missing_id_field': config.guper_client_id_field if missing_id else False,
             'redeemable_items': redeemable_items,
-            'requires_pin': True,
             'pin_threshold': config.guper_pin_threshold or 0,
         }
 
@@ -135,6 +143,11 @@ class GuperPosController(http.Controller):
         nesta sessao e respeita o limite/expiresAt do confirmToken."""
         sess = self._session(order_uuid)
         amount = int(amount_to_redeem or 0)
+
+        # Idempotente: si ya se confirmo, no repetir (evita 409 en doble cierre).
+        if sess.confirmed:
+            return {'tid': sess.tid or False, 'accumulated': sess.accumulated or 0,
+                    'already': True}
 
         if not sess.confirm_token:
             raise UserError(_("Sesión Guper sin confirmToken (ejecute redeem/start)."))
