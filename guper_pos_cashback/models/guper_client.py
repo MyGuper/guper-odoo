@@ -86,6 +86,9 @@ class GuperClient(models.AbstractModel):
         self._check_enabled()
         r = requests.post(f"{self._base()}{path}", json=body,
                           headers=self._headers(), timeout=TIMEOUT)
+        if not r.ok:
+            _logger.error("Guper POST %s -> HTTP %s | body enviado: %s | respuesta: %s",
+                          path, r.status_code, body, (r.text or '')[:800])
         r.raise_for_status()
         return r.json()
 
@@ -93,6 +96,9 @@ class GuperClient(models.AbstractModel):
         self._check_enabled()
         r = requests.get(f"{self._base()}{path}",
                          headers=self._headers(), timeout=TIMEOUT)
+        if not r.ok:
+            _logger.error("Guper GET %s -> HTTP %s | respuesta: %s",
+                          path, r.status_code, (r.text or '')[:800])
         r.raise_for_status()
         return r.json()
 
@@ -125,13 +131,7 @@ class GuperClient(models.AbstractModel):
             body['client'] = client
         if payments:
             body['payments'] = payments
-        try:
-            return self._post(f"/api/loyalty/confirmOrder/{confirm_token}", body)
-        except requests.HTTPError as exc:
-            # 409 = ya confirmado; tratamos como exito idempotente.
-            if exc.response is not None and exc.response.status_code == 409:
-                return {'already_confirmed': True}
-            raise
+        return self._post(f"/api/loyalty/confirmOrder/{confirm_token}", body)
 
     def transaction_by_order(self, *, interface, order_ref):
         """Busca as transacoes de um pedido pelo refId externo (nosso
