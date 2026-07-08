@@ -40,6 +40,24 @@ patch(PosStore.prototype, {
         return data.result;
     },
 
+    // Total de la linea CON impuesto (despues de descuento). En Odoo 19 el
+    // front expone el getter `priceIncl`; NO existen getPriceWithTax() ni
+    // price_subtotal_incl (eso era de versiones viejas). Fallbacks por si el
+    // getter no esta listo.
+    _lineIncl(l) {
+        try {
+            if (typeof l.priceIncl === "number") {
+                return l.priceIncl;
+            }
+        } catch (e) {
+            // precios aun no calculados: caemos al fallback
+        }
+        if (l.price_subtotal_incl != null) {
+            return l.price_subtotal_incl;
+        }
+        return (l.price_unit || 0) * l.getQuantity();
+    },
+
     _guperItems(order) {
         return order
             .getOrderlines()
@@ -47,16 +65,9 @@ patch(PosStore.prototype, {
             .map((l) => {
                 const qty = l.getQuantity() || 1;
                 // Base de acumulacion = valor CON impuesto (lo que paga el
-                // cliente), no el price_unit sin IVA. Enviamos precio unitario
-                // con impuesto -> Guper hace precio * cantidad.
-                let lineWithTax;
-                if (typeof l.getPriceWithTax === "function") {
-                    lineWithTax = l.getPriceWithTax();
-                } else if (l.price_subtotal_incl != null) {
-                    lineWithTax = l.price_subtotal_incl;
-                } else {
-                    lineWithTax = (l.price_unit || 0) * qty;
-                }
+                // cliente). Enviamos precio unitario con impuesto -> Guper
+                // hace precio * cantidad.
+                const lineWithTax = this._lineIncl(l);
                 return {
                     id: l.product_id?.default_code || String(l.product_id?.id),
                     name: l.product_id?.display_name,
@@ -166,15 +177,7 @@ patch(PosStore.prototype, {
         const lines = order
             .getOrderlines()
             .filter((l) => l.getQuantity() > 0 && (l.price_unit || 0) >= 0);
-        const grossOf = (l) => {
-            if (l.price_subtotal_incl != null) {
-                return l.price_subtotal_incl;
-            }
-            if (typeof l.getPriceWithTax === "function") {
-                return l.getPriceWithTax();
-            }
-            return (l.price_unit || 0) * l.getQuantity();
-        };
+        const grossOf = (l) => this._lineIncl(l);
         const addDiscount = (l, pct) => {
             l.setDiscount(Math.min(100, (l.discount || 0) + pct));
             l.guper_discount_pct = pct;
