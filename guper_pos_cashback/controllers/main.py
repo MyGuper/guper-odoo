@@ -87,6 +87,12 @@ class GuperPosController(http.Controller):
         balance_total = user_balance.get('total', 0)
         redeemable_max = redeemable_full
 
+        _logger.info(
+            "[Guper] redeem_start anon=%s missing_id=%s confirmToken=%s "
+            "customerId=%s redeemable=%s accumulating=%s",
+            not bool(partner), missing_id, bool(quote.get('confirmToken')),
+            quote.get('customerId'), redeemable_full, accumulating)
+
         if partner and quote.get('customerId'):
             partner._guper_cache_person(quote['customerId'])
 
@@ -146,6 +152,9 @@ class GuperPosController(http.Controller):
         sess = self._session(order_uuid)
         amount = int(amount_to_redeem or 0)
 
+        _logger.info("[Guper] redeem_confirm %s amount=%s has_token=%s confirmed=%s",
+                     order_uuid, amount, bool(sess.confirm_token), sess.confirmed)
+
         # Idempotente: si ya se confirmo, no repetir (evita 409 en doble cierre).
         if sess.confirmed:
             return {'tid': sess.tid or False, 'accumulated': sess.accumulated or 0,
@@ -167,6 +176,8 @@ class GuperPosController(http.Controller):
             order_id=order_uuid,
             amount_to_redeem=amount,
         )
+        _logger.info("[Guper] confirmOrder OK %s -> TID=%s already=%s",
+                     order_uuid, res.get('TID'), res.get('already_confirmed'))
         # Grava o resultado na sessao; o pos.order estampa o TID quando sincroniza.
         tid = res.get('TID')
         accumulated = (res.get('cashback') or {}).get('accumulatedOrder', 0)
