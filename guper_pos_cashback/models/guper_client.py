@@ -32,13 +32,12 @@ class GuperClient(models.AbstractModel):
         return self.env['ir.config_parameter'].sudo()
 
     def order_id(self, raw):
-        """Id do pedido para o Guper, unico globalmente. Prefixa com o uuid do
-        banco (database.uuid) para nao colidir entre sessoes/bancos (o
-        order.name/pos_reference reinicia por sessao e causava 409 no
-        confirmOrder). Estavel para o mesmo pedido -> devolucoes continuam
-        encontrando pelo mesmo id."""
-        dbid = (self._icp().get_param('database.uuid') or '')[:8]
-        return "%s-%s" % (dbid, raw) if dbid else raw
+        """Id do pedido para o Guper = o proprio valor recebido (o pos_reference,
+        numero real do ticket) para que o registro no Guper corresponda ao ticket
+        do POS. O confirmOrder roda server-side (pos.order.create) com o
+        pos_reference, que ja e unico por base -> nao precisa de prefixo/hash.
+        Passthrough mantido para nao tocar os call sites."""
+        return raw
 
     def enabled(self):
         """Trava de seguranca. Desligada por padrao: em Odoo.sh o staging copia

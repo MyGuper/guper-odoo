@@ -44,13 +44,27 @@ patch(PosStore.prototype, {
         return order
             .getOrderlines()
             .filter((l) => l.getQuantity() > 0 && (l.price_unit || 0) >= 0)
-            .map((l) => ({
-                id: l.product_id?.default_code || String(l.product_id?.id),
-                name: l.product_id?.display_name,
-                quantity: Math.round(l.getQuantity()),
-                price: Math.round((l.price_unit || 0) * 100),
-                productId: String(l.product_id?.id),
-            }));
+            .map((l) => {
+                const qty = l.getQuantity() || 1;
+                // Base de acumulacion = valor CON impuesto (lo que paga el
+                // cliente), no el price_unit sin IVA. Enviamos precio unitario
+                // con impuesto -> Guper hace precio * cantidad.
+                let lineWithTax;
+                if (typeof l.getPriceWithTax === "function") {
+                    lineWithTax = l.getPriceWithTax();
+                } else if (l.price_subtotal_incl != null) {
+                    lineWithTax = l.price_subtotal_incl;
+                } else {
+                    lineWithTax = (l.price_unit || 0) * qty;
+                }
+                return {
+                    id: l.product_id?.default_code || String(l.product_id?.id),
+                    name: l.product_id?.display_name,
+                    quantity: Math.round(qty),
+                    price: Math.round((lineWithTax / qty) * 100),
+                    productId: String(l.product_id?.id),
+                };
+            });
     },
 
     async _guperPay() {

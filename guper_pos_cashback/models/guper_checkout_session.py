@@ -24,6 +24,10 @@ class GuperCheckoutSession(models.Model):
 
     redeemable_total = fields.Integer(help="Máximo canjeable en este pedido (centavos)")
     balance_available = fields.Integer(help="Saldo disponible del cliente (centavos)")
+    amount_to_redeem = fields.Integer(
+        default=0,
+        help="Monto a canjear stasheado por el front; se confirma server-side "
+             "en pos.order.create() con el pos_reference como id.")
 
     pin_validated = fields.Boolean(default=False)
     pin_expires_at = fields.Datetime(help="expiresAt del último PIN generado")

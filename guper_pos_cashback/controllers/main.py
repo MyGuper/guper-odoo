@@ -87,12 +87,6 @@ class GuperPosController(http.Controller):
         balance_total = user_balance.get('total', 0)
         redeemable_max = redeemable_full
 
-        _logger.info(
-            "[Guper] redeem_start anon=%s missing_id=%s confirmToken=%s "
-            "customerId=%s redeemable=%s accumulating=%s",
-            not bool(partner), missing_id, bool(quote.get('confirmToken')),
-            quote.get('customerId'), redeemable_full, accumulating)
-
         if partner and quote.get('customerId'):
             partner._guper_cache_person(quote['customerId'])
 
@@ -144,26 +138,23 @@ class GuperPosController(http.Controller):
             sess.pin_validated = True
         return {'valid': valid}
 
-    # ------------------------------------------------- 4) confirmar (commit)
+    # ------------------------------------------- 4) stash del monto (pre-commit)
     @http.route('/guper/redeem/confirm', type='jsonrpc', auth='user')
     def redeem_confirm(self, order_uuid, amount_to_redeem=0):
-        """Efetiva acumulo + resgate. GATE: resgate > 0 exige PIN validado
-        nesta sessao e respeita o limite/expiresAt do confirmToken."""
+        """Guarda en la sesión el monto a canjear y valida el GATE del PIN
+        (canje > 0 exige PIN validado). NO llama a Guper aquí: el confirmOrder
+        real corre server-side en pos.order.create() usando el pos_reference
+        (número de ticket real) como id, para que el registro en Guper coincida
+        con el ticket del POS."""
         sess = self._session(order_uuid)
         amount = int(amount_to_redeem or 0)
 
-        _logger.info("[Guper] redeem_confirm %s amount=%s has_token=%s confirmed=%s",
-                     order_uuid, amount, bool(sess.confirm_token), sess.confirmed)
-
-        # Idempotente: si ya se confirmo, no repetir (evita 409 en doble cierre).
+        # Idempotente: si ya se confirmó, no repetir.
         if sess.confirmed:
-            return {'tid': sess.tid or False, 'accumulated': sess.accumulated or 0,
-                    'already': True}
+            return {'already': True}
 
         if not sess.confirm_token:
             raise UserError(_("Sesión Guper sin confirmToken (ejecute redeem/start)."))
-        if sess.expires_at and fields.Datetime.now() > sess.expires_at:
-            raise UserError(_("Cotización Guper expirada. Rehaga el canje."))
 
         if amount > 0:
             if amount > (sess.redeemable_total or 0):
@@ -171,18 +162,8 @@ class GuperPosController(http.Controller):
             if not sess.pin_validated:
                 raise AccessError(_("El canje requiere PIN validado."))
 
-        res = self._client().confirm_order(
-            confirm_token=sess.confirm_token,
-            order_id=order_uuid,
-            amount_to_redeem=amount,
-        )
-        _logger.info("[Guper] confirmOrder OK %s -> TID=%s already=%s",
-                     order_uuid, res.get('TID'), res.get('already_confirmed'))
-        # Grava o resultado na sessao; o pos.order estampa o TID quando sincroniza.
-        tid = res.get('TID')
-        accumulated = (res.get('cashback') or {}).get('accumulatedOrder', 0)
-        sess.write({'tid': tid, 'accumulated': accumulated, 'confirmed': True})
-        return {'tid': tid, 'accumulated': accumulated}
+        sess.amount_to_redeem = amount
+        return {'ok': True, 'amount': amount}
 
     # ------------------------------------------------------------- utilidades
     @staticmethod
