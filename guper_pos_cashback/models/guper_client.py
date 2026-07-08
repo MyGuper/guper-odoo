@@ -32,12 +32,16 @@ class GuperClient(models.AbstractModel):
         return self.env['ir.config_parameter'].sudo()
 
     def order_id(self, raw):
-        """Id do pedido para o Guper = o proprio valor recebido (o pos_reference,
-        numero real do ticket) para que o registro no Guper corresponda ao ticket
-        do POS. O confirmOrder roda server-side (pos.order.create) com o
-        pos_reference, que ja e unico por base -> nao precisa de prefixo/hash.
-        Passthrough mantido para nao tocar os call sites."""
-        return raw
+        """Id do pedido para o Guper = prefixo do banco + pos_reference.
+        O miolo e o pos_reference (numero real do ticket, ex.: '261-2-000001'),
+        entao o registro no Guper corresponde ao ticket do POS. O prefixo
+        database.uuid[:8] evita colisao entre builds/bancos: cada build do
+        Odoo.sh gera um banco neutralizado com novo database.uuid e a sequencia
+        do pos_reference reinicia -> sem o prefixo, '261-2-000001' se repetiria
+        entre builds na mesma org Guper e daria 409. Estavel para o mesmo
+        pedido -> devolucoes continuam encontrando pelo mesmo id."""
+        dbid = (self._icp().get_param('database.uuid') or '')[:8]
+        return "%s-%s" % (dbid, raw) if dbid else raw
 
     def enabled(self):
         """Trava de seguranca. Desligada por padrao: em Odoo.sh o staging copia
