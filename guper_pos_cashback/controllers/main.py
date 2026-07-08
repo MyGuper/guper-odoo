@@ -36,7 +36,7 @@ class GuperPosController(http.Controller):
             store_id=config._guper_store_id(),
             interface=config.guper_interface or 'odoo',
             items=items,
-            client=partner._guper_client_dict(),
+            client=partner._guper_client_dict(config.guper_client_id_field),
             checkout_id=order_uuid,
         )
         if quote.get('customerId'):
@@ -63,7 +63,10 @@ class GuperPosController(http.Controller):
         config = request.env['pos.config'].browse(int(config_id))
         partner = (request.env['res.partner'].browse(int(partner_id))
                    if partner_id else request.env['res.partner'])
-        client = partner._guper_client_dict() if partner else None  # None = anonimo
+        client = (partner._guper_client_dict(config.guper_client_id_field)
+                  if partner else None)  # None = anonimo
+        # cliente seleccionado pero SIN el campo identificador -> no acumula.
+        missing_id = bool(partner) and client is None
 
         quote = self._client().reward_by_order(
             store_id=config._guper_store_id(),
@@ -101,7 +104,8 @@ class GuperPosController(http.Controller):
             'redeemable_full': redeemable_full,  # soma dos itens (p/ o fator)
             'balance_total': balance_total,      # saldo total do cliente
             'accumulating': accumulating,        # o que a compra vai acumular
-            'is_anonymous': not bool(partner),
+            'is_anonymous': not bool(partner),   # sem cliente selecionado
+            'missing_id_field': config.guper_client_id_field if missing_id else False,
             'redeemable_items': redeemable_items,
             'pin_threshold': config.guper_pin_threshold or 0,
         }

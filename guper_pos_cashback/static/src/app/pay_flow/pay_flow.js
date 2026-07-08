@@ -92,7 +92,19 @@ patch(Order.prototype, {
         const redeemable = quote.redeemable_max || 0;
         const accumulating = quote.accumulating || 0;
 
-        // 2a) Anonimo -> aviso; la venta se registra igual al cerrar (client null).
+        // 2a) Cliente seleccionado pero SIN el campo identificador configurado
+        //     -> no se puede identificar, no acumula. Aviso especifico.
+        if (quote.missing_id_field) {
+            const labels = { phone: "teléfono", email: "email", document: "documento" };
+            const f = labels[quote.missing_id_field] || quote.missing_id_field;
+            notification.add(
+                "El cliente no acumulará: falta " + f + " registrado.",
+                { type: "warning" }
+            );
+            return;
+        }
+
+        // 2b) Anonimo (sin cliente) -> aviso; se registra igual (client null).
         if (quote.is_anonymous || !partner) {
             notification.add(
                 "Cliente anónimo: dejará de acumular " + this._guperFmt(accumulating),
@@ -101,7 +113,7 @@ patch(Order.prototype, {
             return;
         }
 
-        // 2b) Con cliente sin saldo -> aviso de acumulacion.
+        // 2c) Con cliente sin saldo -> aviso de acumulacion.
         if (redeemable <= 0) {
             notification.add("Acumulará " + this._guperFmt(accumulating), { type: "info" });
             return;
