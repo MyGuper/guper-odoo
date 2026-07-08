@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <templates id="template" xml:space="preserve">
     <t t-name="guper_pos_cashback.AmountPopup">
-        <Dialog title.translate="Canjear cashback">
+        <Dialog title.translate="¿Desea redimir cashback?">
             <div class="guper-amount-popup">
                 <p>
                     <span class="text-muted">Saldo total del cliente:</span>
@@ -12,7 +12,7 @@
                     <strong class="ms-1" t-esc="redeemableLabel"/>
                 </p>
                 <div class="mt-3">
-                    <label class="form-label">Monto a canjear</label>
+                    <label class="form-label">Monto a redimir</label>
                     <input type="number" step="0.01" min="0"
                            t-att-max="maxAmount"
                            class="form-control form-control-lg"
@@ -23,9 +23,9 @@
                 </p>
             </div>
             <t t-set-slot="footer">
+                <button class="btn btn-outline-secondary" t-on-click="onCancel">No redimir</button>
                 <button class="btn btn-primary" t-on-click="onConfirm"
-                        t-att-disabled="!valid">Aplicar</button>
-                <button class="btn btn-link" t-on-click="onCancel">Cancelar</button>
+                        t-att-disabled="!valid">Redimir</button>
             </t>
         </Dialog>
     </t>
