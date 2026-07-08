@@ -16,11 +16,6 @@ class PosConfig(models.Model):
     guper_cashback_product_id = fields.Many2one(
         'product.product', string="Producto Cashback (línea de descuento)",
         help="Producto de servicio usado como línea de descuento negativa del canje.")
-    guper_client_id_field = fields.Selection(
-        [('phone', 'Teléfono'), ('email', 'Email'), ('document', 'Documento')],
-        string="Identificador del cliente", default='phone', required=True,
-        help="Campo del cliente que se envía a Guper como identificador para "
-             "encontrar a la persona (el PIN igual llega al WhatsApp registrado).")
 
     def _guper_store_id(self):
         # storeId = id da loja na Odoo (pos.config), com override manual opcional.

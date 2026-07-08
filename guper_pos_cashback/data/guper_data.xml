@@ -21,6 +21,11 @@
             <field name="key">guper.apisecret</field>
             <field name="value"></field>
         </record>
+        <!-- Campo identificador del cliente: phone | email | document -->
+        <record id="guper_param_client_id_field" model="ir.config_parameter">
+            <field name="key">guper.client_id_field</field>
+            <field name="value">phone</field>
+        </record>
 
         <record id="product_guper_cashback" model="product.product">
             <field name="name">Cashback Guper</field>

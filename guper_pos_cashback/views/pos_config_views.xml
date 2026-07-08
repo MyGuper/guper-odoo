@@ -7,7 +7,6 @@
         <field name="arch" type="xml">
             <xpath expr="//sheet" position="inside">
                 <group string="Guper Cashback" name="guper">
-                    <field name="guper_client_id_field"/>
                     <field name="guper_store_id"/>
                     <field name="guper_interface"/>
                     <field name="guper_pin_threshold"/>

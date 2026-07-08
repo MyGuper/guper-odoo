@@ -13,15 +13,18 @@ class ResPartner(models.Model):
     def _guper_digits(self, value):
         return re.sub(r'\D', '', value or '')
 
-    def _guper_client_dict(self, id_field='phone'):
+    def _guper_client_dict(self, id_field=None):
         """Monta o objeto `client` do reward-by-order a partir do partner.
 
         id_field ('phone'|'email'|'document') define QUAL campo e enviado como
-        identificador principal (configuravel por loja). name/id vao junto para
-        criar a pessoa se nao existir. Se ja houver guper_person_id cacheado,
-        retorna direto o personId (match direto).
+        identificador principal. Se None, le do parametro do sistema global
+        'guper.client_id_field' (default 'phone'). name/id vao junto. Se ja
+        houver guper_person_id cacheado, retorna direto o personId.
         """
         self.ensure_one()
+        if id_field is None:
+            id_field = (self.env['ir.config_parameter'].sudo()
+                        .get_param('guper.client_id_field', 'phone'))
         if self.guper_person_id:
             try:
                 return int(self.guper_person_id)
