@@ -39,13 +39,23 @@ class ResPartner(models.Model):
             key, value = 'document', self._guper_digits(self.vat)
         else:  # phone (padrao) - Odoo 19 removeu mobile; getattr compat com 18.
             key = 'cellphone'
-            value = self._guper_digits(getattr(self, 'mobile', False) or self.phone)
+            raw = getattr(self, 'mobile', False) or self.phone or ''
+            country_calling_code = None
+            try:
+                import phonenumbers
+                parsed = phonenumbers.parse(raw, self.country_id.code or None)
+                value = str(parsed.national_number)
+                country_calling_code = parsed.country_code
+            except Exception:
+                value = self._guper_digits(raw)
 
         if not value:
             # Sem o campo identificador preenchido -> nao da pra identificar.
             return None
 
         client = {key: value}
+        if key == 'cellphone' and country_calling_code:
+            client['countryCallingCode'] = country_calling_code
         if self.ref:
             client['id'] = self.ref
         if self.name:
