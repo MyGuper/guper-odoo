@@ -1,5 +1,6 @@
 import logging
 import requests
+from urllib.parse import quote
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
@@ -30,6 +31,18 @@ class GuperClient(models.AbstractModel):
     def _icp(self):
         return self.env['ir.config_parameter'].sudo()
 
+    def order_id(self, raw):
+        """Id do pedido para o Guper = prefixo do banco + pos_reference.
+        O miolo e o pos_reference (numero real do ticket, ex.: '261-2-000001'),
+        entao o registro no Guper corresponde ao ticket do POS. O prefixo
+        database.uuid[:8] evita colisao entre builds/bancos: cada build do
+        Odoo.sh gera um banco neutralizado com novo database.uuid e a sequencia
+        do pos_reference reinicia -> sem o prefixo, '261-2-000001' se repetiria
+        entre builds na mesma org Guper e daria 409. Estavel para o mesmo
+        pedido -> devolucoes continuam encontrando pelo mesmo id."""
+        dbid = (self._icp().get_param('database.uuid') or '')[:8]
+        return "%s-%s" % (dbid, raw) if dbid else raw
+
     def enabled(self):
         """Trava de seguranca. Desligada por padrao: em Odoo.sh o staging copia
         o banco de producao (credenciais inclusas), entao so producao deve falar
@@ -40,12 +53,12 @@ class GuperClient(models.AbstractModel):
     def _check_enabled(self):
         if not self.enabled():
             raise UserError(_(
-                "Integracao Guper desativada (guper.enabled = False)."))
+                "Integración Guper desactivada (guper.enabled = False)."))
 
     def _base(self):
         base = self._icp().get_param('guper.base_url')
         if not base:
-            raise UserError(_("Parametro 'guper.base_url' nao configurado."))
+            raise UserError(_("Parámetro 'guper.base_url' no configurado."))
         return base.rstrip('/')
 
     def _token(self):
@@ -86,6 +99,9 @@ class GuperClient(models.AbstractModel):
         self._check_enabled()
         r = requests.post(f"{self._base()}{path}", json=body,
                           headers=self._headers(), timeout=TIMEOUT)
+        if not r.ok:
+            _logger.error("Guper POST %s -> HTTP %s | body enviado: %s | respuesta: %s",
+                          path, r.status_code, body, (r.text or '')[:800])
         r.raise_for_status()
         return r.json()
 
@@ -93,6 +109,9 @@ class GuperClient(models.AbstractModel):
         self._check_enabled()
         r = requests.get(f"{self._base()}{path}",
                          headers=self._headers(), timeout=TIMEOUT)
+        if not r.ok:
+            _logger.error("Guper GET %s -> HTTP %s | respuesta: %s",
+                          path, r.status_code, (r.text or '')[:800])
         r.raise_for_status()
         return r.json()
 
@@ -109,16 +128,17 @@ class GuperClient(models.AbstractModel):
         if client is not None:
             body['client'] = client
         if checkout_id:
-            body['checkoutId'] = checkout_id
+            body['checkoutId'] = self.order_id(checkout_id)
         if attendants:
             body['attendants'] = attendants
-        return self._post('/api/loyalty/checkout/reward-by-order', body)
+        return self._post('/api/loyalty/rewardByOrder', body)
 
     def confirm_order(self, *, confirm_token, order_id, amount_to_redeem=0,
                       payments=None, client=None, wait_settlement=False):
         """Fase 2 - commit. Confirma acumulo e resgate (amountToRedeem) juntos.
         Retorna TID, cashback.accumulatedOrder, person."""
-        body = {'id': order_id, 'amountToRedeem': int(amount_to_redeem or 0)}
+        body = {'id': self.order_id(order_id),
+                'amountToRedeem': int(amount_to_redeem or 0)}
         if wait_settlement:
             body['waitSettlement'] = True
         if client:
@@ -130,8 +150,9 @@ class GuperClient(models.AbstractModel):
     def transaction_by_order(self, *, interface, order_ref):
         """Busca as transacoes de um pedido pelo refId externo (nosso
         pos_reference). Retorna {order, transactions:[{TID, canceledAt, ...}]}."""
+        ref = quote(self.order_id(order_ref), safe='')  # mesmo id unico + url-safe
         return self._get(
-            f"/api/loyalty/{interface}/transaction/byOrder/{order_ref}")
+            f"/api/loyalty/{interface}/transaction/byOrder/{ref}")
 
     def cancel_total(self, *, tid):
         """Cancelamento total: reverte acumulo e desfaz resgate. Idempotente:

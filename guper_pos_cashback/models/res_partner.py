@@ -8,39 +8,59 @@ class ResPartner(models.Model):
 
     guper_person_id = fields.Char(
         string="Guper Person ID", index=True, copy=False,
-        help="Cache do personId do Guper resolvido pelo celular/documento.")
+        help="Caché del personId de Guper resuelto por el celular/documento.")
 
     def _guper_digits(self, value):
         return re.sub(r'\D', '', value or '')
 
-    def _guper_client_dict(self):
+    def _guper_client_dict(self, id_field=None):
         """Monta o objeto `client` do reward-by-order a partir do partner.
 
-        O documento e a chave primaria de match; celular e email ajudam. Se ja
-        houver guper_person_id cacheado, o resolve() usa direto o personId.
+        id_field ('phone'|'email'|'document') define QUAL campo e enviado como
+        identificador principal. Se None, le do parametro do sistema global
+        'guper.client_id_field' (default 'phone'). name/id vao junto. Se ja
+        houver guper_person_id cacheado, retorna direto o personId.
         """
         self.ensure_one()
-        cellphone = self._guper_digits(self.mobile or self.phone)
-        client = {}
+        if id_field is None:
+            id_field = (self.env['ir.config_parameter'].sudo()
+                        .get_param('guper.client_id_field', 'phone'))
         if self.guper_person_id:
-            # personId inteiro tem prioridade (match direto).
             try:
                 return int(self.guper_person_id)
             except (ValueError, TypeError):
                 pass
+
+        # Valor do campo identificador configurado.
+        if id_field == 'email':
+            key, value = 'email', (self.email or '').strip().lower()
+        elif id_field == 'document':
+            # TODO(guper): usar o campo l10n da instancia (RFC/CURP) se aplicar.
+            key, value = 'document', self._guper_digits(self.vat)
+        else:  # phone (padrao) - Odoo 19 removeu mobile; getattr compat com 18.
+            key = 'cellphone'
+            raw = getattr(self, 'mobile', False) or self.phone or ''
+            country_calling_code = None
+            try:
+                import phonenumbers
+                parsed = phonenumbers.parse(raw, self.country_id.code or None)
+                value = str(parsed.national_number)
+                country_calling_code = parsed.country_code
+            except Exception:
+                value = self._guper_digits(raw)
+
+        if not value:
+            # Sem o campo identificador preenchido -> nao da pra identificar.
+            return None
+
+        client = {key: value}
+        if key == 'cellphone' and country_calling_code:
+            client['countryCallingCode'] = country_calling_code
         if self.ref:
             client['id'] = self.ref
         if self.name:
             client['name'] = self.name
-        # TODO(guper): mapear o campo de documento fiscal (l10n_*/vat) da instancia.
-        if self.vat:
-            client['document'] = self._guper_digits(self.vat)
-        if self.email:
-            client['email'] = self.email.lower()
-        if cellphone:
-            client['cellphone'] = cellphone
-            # TODO(guper): countryCallingCode herdado da org se omitido; ajustar se multi-pais.
-        return client or None
+        return client
 
     def _guper_cache_person(self, person_id):
         if person_id and str(person_id) != (self.guper_person_id or ''):

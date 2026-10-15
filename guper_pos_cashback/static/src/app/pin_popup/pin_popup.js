@@ -45,7 +45,7 @@ export class GuperPinPopup extends Component {
             this.state.pin = "";
             this._startCountdown();
         } catch (e) {
-            this.notification.add(_t("Falha ao enviar o PIN."), { type: "danger" });
+            this.notification.add(_t("Fallo al enviar el PIN."), { type: "danger" });
         } finally {
             this.state.busy = false;
         }
@@ -74,6 +74,13 @@ export class GuperPinPopup extends Component {
         return this.state.remaining <= 0;
     }
 
+    get remainingLabel() {
+        // String/Math nao existem no contexto do template OWL -> formata aqui.
+        const m = Math.floor(this.state.remaining / 60);
+        const s = String(this.state.remaining % 60).padStart(2, "0");
+        return `${m}:${s}`;
+    }
+
     async onResend() {
         this.state.attempts = 0;
         await this._generate();
@@ -98,8 +105,8 @@ export class GuperPinPopup extends Component {
             this.state.pin = "";
             this.notification.add(
                 this.state.attempts >= MAX_ATTEMPTS
-                    ? _t("Muitas tentativas. Reenvie o PIN.")
-                    : _t("PIN invalido."),
+                    ? _t("Demasiados intentos. Reenvíe el PIN.")
+                    : _t("PIN inválido."),
                 { type: "warning" }
             );
         } finally {

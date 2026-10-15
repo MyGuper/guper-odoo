@@ -1,6 +1,6 @@
 {
     'name': 'Guper POS Cashback',
-    'version': '18.0.1.0.0',
+    'version': '19.0.1.1.3',
     'summary': 'Geracao e resgate de cashback Guper no Point of Sale (com PIN por WhatsApp)',
     'author': 'Guper',
     'website': 'https://guper.co',
@@ -12,7 +12,6 @@
         'data/guper_data.xml',
         'data/guper_cron.xml',
         'views/pos_config_views.xml',
-        'views/res_config_settings_views.xml',
     ],
     'assets': {
         # Bundle do POS no Odoo 17/18
