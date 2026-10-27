@@ -15,7 +15,6 @@
         'views/res_config_settings_views.xml',
     ],
     'assets': {
-        # Bundle do POS no Odoo 17/18
         'point_of_sale._assets_pos': [
             'guper_pos_cashback/static/src/**/*',
         ],

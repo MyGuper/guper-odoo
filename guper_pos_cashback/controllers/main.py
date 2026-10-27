@@ -52,40 +52,52 @@ class GuperPosController(http.Controller):
     # ----------------------------------------------------- 1) cotacao / saldo
     @http.route('/guper/redeem/start', type='json', auth='user')
     def redeem_start(self, order_uuid, config_id, partner_id, items):
-        """Chama reward-by-order, guarda confirmToken/customerId na sessao e
-        devolve saldo + maximo resgatavel para o caixa."""
+        """reward-by-order (cliente o anonimo), guarda el confirmToken en la
+        sesion y devuelve saldo/resgatavel + acumulacion. Llamado en Pagar."""
         config = request.env['pos.config'].browse(int(config_id))
-        partner = request.env['res.partner'].browse(int(partner_id))
+        partner = (request.env['res.partner'].browse(int(partner_id))
+                   if partner_id else request.env['res.partner'])
+        client = partner._guper_client_dict() if partner else None
+        missing_id = bool(partner) and client is None
 
         quote = self._client().reward_by_order(
             store_id=config._guper_store_id(),
             interface=config.guper_interface or 'odoo',
             items=items,
-            client=partner._guper_client_dict(),
+            client=client,
             checkout_id=order_uuid,
         )
         this_order = (quote.get('cashback') or {}).get('thisOrder') or {}
         user_balance = (quote.get('cashback') or {}).get('userBalance') or {}
-        redeemable = (this_order.get('redeemable') or {}).get('total', 0)
-        available = user_balance.get('availableAmount', 0)
+        redeemable_obj = this_order.get('redeemable') or {}
+        accumulating_obj = this_order.get('accumulating') or {}
+        redeemable_full = redeemable_obj.get('total', 0)
+        redeemable_items = redeemable_obj.get('item') or []
+        accumulating = accumulating_obj.get('total', 0)
+        balance_total = user_balance.get('total', 0)
 
-        if quote.get('customerId'):
+        if partner and quote.get('customerId'):
             partner._guper_cache_person(quote['customerId'])
 
         sess = self._session(order_uuid, config_id=config.id)
         sess.write({
-            'partner_id': partner.id,
-            'customer_id': str(quote.get('customerId') or partner.guper_person_id or ''),
+            'partner_id': partner.id if partner else False,
+            'customer_id': str(quote.get('customerId')
+                               or (partner.guper_person_id if partner else '') or ''),
             'confirm_token': quote.get('confirmToken'),
             'expires_at': self._parse_dt(quote.get('expiresAt')),
-            'redeemable_total': redeemable,
-            'balance_available': available,
+            'redeemable_total': redeemable_full,
+            'balance_available': balance_total,
             'pin_validated': False,
         })
         return {
-            'redeemable_total': redeemable,
-            'balance_available': available,
-            'requires_pin': True,
+            'redeemable_max': redeemable_full,
+            'redeemable_full': redeemable_full,
+            'redeemable_items': redeemable_items,
+            'balance_total': balance_total,
+            'accumulating': accumulating,
+            'is_anonymous': not bool(partner),
+            'missing_id_field': 'phone' if missing_id else False,
             'pin_threshold': config.guper_pin_threshold or 0,
         }
 

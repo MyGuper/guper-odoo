@@ -65,11 +65,20 @@ chama **cancel total** (devolucao integral) ou **cancel parcial** (itens
 devolvidos). `storeId` = id da loja na Odoo (pos.config) com override opcional;
 `interface` = `odoo`.
 
+## Entrada no fluxo
+
+O fluxo Guper roda no clique em **Pagar** (`Order.pay()` via `pay_flow.js`), nao como botao separado. Ramos:
+
+- **Com saldo** → popup de monto + PIN + desconto por linha (`set_discount`, aditivo, base = valor COM imposto via `get_price_with_tax()`).
+- **Sem saldo** → notificacao de acumulacao (cron assume depois).
+- **Anonimo** → notificacao; venda registrada sem cliente.
+- **Sem campo identificador** → notificacao; nao acumula.
+
+O `confirmOrder` roda em `PaymentScreen.validateOrder` (via `/guper/redeem/confirm`), depois que o caixa fecha o pagamento. O `pos.order.create()` le o TID da sessao e estampa no pedido (`_guper_apply_realtime_result`). Acumulacao pura (sem resgate): sempre via cron `_cron_guper_accruals` (idempotente por `pos_reference`).
+
 ## TODOs em aberto
 
-- [ ] **Documento fiscal**: `res_partner._guper_client_dict` usa `vat`; ajustar para o campo l10n da instancia (ex.: CPF).
-- [ ] **Refund cumulativo**: `_guper_is_full_refund` compara so o refund atual com o pedido original; nao soma devolucoes parciais anteriores para decidir total vs parcial.
-- [ ] **countryCallingCode**: hoje herdado da org; ajustar se multi-pais.
-- [ ] **Front OWL 18**: confirmar contra o build instalado (a) categoria de registro do botao de controle, (b) hook de validacao no PaymentScreen, (c) popup de valor a resgatar (`_askAmount` hoje resgata o maximo).
-- [ ] **Reconciliacao**: cron diario pela replica MySQL para reprocessar `guper_accrual_state = 'error'`.
+- [ ] **Documento fiscal**: `res_partner._guper_client_dict` usa `vat`; ajustar para o campo l10n da instancia do cliente (ex.: RFC no Mexico).
+- [ ] **Refund cumulativo**: `_guper_is_full_refund` nao soma devolucoes parciais anteriores ao decidir total vs parcial.
+- [ ] **Import Order (18)**: `pay_flow.js` importa de `@point_of_sale/app/store/models`; confirmar no build 18 instalado (pode estar em `@point_of_sale/app/models/pos_order`).
 ```
