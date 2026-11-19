@@ -14,7 +14,7 @@ class GuperClient(models.AbstractModel):
 
     Endpoints usados (todos em https://{org}.myguper.com):
       - GET  /api/connect/token                                  -> auth (token cache)
-      - POST /api/loyalty/checkout/reward-by-order               -> cotacao (confirmToken)
+      - POST /api/loyalty/rewardByOrder                           -> cotacao (confirmToken)
       - POST /api/loyalty/confirmOrder/{confirmToken}            -> commit (acumulo + resgate)
       - GET  /api/register/customer/{person}/pin                 -> gera PIN (WhatsApp/SMS)
       - POST /api/register/customer/{person}/pin/validate        -> valida PIN
@@ -112,7 +112,7 @@ class GuperClient(models.AbstractModel):
             body['checkoutId'] = checkout_id
         if attendants:
             body['attendants'] = attendants
-        return self._post('/api/loyalty/checkout/reward-by-order', body)
+        return self._post('/api/loyalty/rewardByOrder', body)
 
     def confirm_order(self, *, confirm_token, order_id, amount_to_redeem=0,
                       payments=None, client=None, wait_settlement=False):
