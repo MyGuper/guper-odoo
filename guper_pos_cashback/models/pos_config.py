@@ -18,6 +18,9 @@ class PosConfig(models.Model):
         help="Produto servico usado como linha de desconto negativa do resgate.")
 
     def _guper_store_id(self):
-        # storeId = id da loja na Odoo (pos.config), com override manual opcional.
+        # Override manual > apikey (que a Guper usa como storeId) > id interno.
         self.ensure_one()
-        return self.guper_store_id or str(self.id)
+        if self.guper_store_id:
+            return self.guper_store_id
+        apikey = self.env['ir.config_parameter'].sudo().get_param('guper.apikey')
+        return apikey or str(self.id)
