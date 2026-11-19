@@ -18,9 +18,6 @@ class PosConfig(models.Model):
         help="Produto servico usado como linha de desconto negativa do resgate.")
 
     def _guper_store_id(self):
-        # Override manual > apikey (que a Guper usa como storeId) > id interno.
+        # storeId manual (campo) ou ID interno do pos.config como fallback.
         self.ensure_one()
-        if self.guper_store_id:
-            return self.guper_store_id
-        apikey = self.env['ir.config_parameter'].sudo().get_param('guper.apikey')
-        return apikey or str(self.id)
+        return self.guper_store_id or str(self.id)
