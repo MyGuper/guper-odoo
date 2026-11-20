@@ -130,15 +130,19 @@ class GuperPosController(http.Controller):
     # ------------------------------------------------- 4) confirmar (commit)
     @http.route('/guper/redeem/confirm', type='json', auth='user')
     def redeem_confirm(self, order_uuid, amount_to_redeem=0):
-        """Efetiva acumulo + resgate. GATE: resgate > 0 exige PIN validado
-        nesta sessao e respeita o limite/expiresAt do confirmToken."""
+        """Guarda na sessao o valor a resgatar e valida o GATE do PIN
+        (resgate > 0 exige PIN validado). NAO chama o Guper aqui: o confirmOrder
+        real roda server-side em pos.order.create() usando o pos_reference
+        (numero do ticket real) como id, para que o registro no Guper coincida
+        com o ticket do POS."""
         sess = self._session(order_uuid)
         amount = int(amount_to_redeem or 0)
 
+        if sess.confirmed:
+            return {'already': True}
+
         if not sess.confirm_token:
             raise UserError(_("Sessao Guper sem confirmToken (rode redeem/start)."))
-        if sess.expires_at and fields.Datetime.now() > sess.expires_at:
-            raise UserError(_("Cotacao Guper expirada. Refaca o resgate."))
 
         if amount > 0:
             if amount > (sess.redeemable_total or 0):
@@ -146,16 +150,8 @@ class GuperPosController(http.Controller):
             if not sess.pin_validated:
                 raise AccessError(_("Resgate exige PIN validado."))
 
-        res = self._client().confirm_order(
-            confirm_token=sess.confirm_token,
-            order_id=order_uuid,
-            amount_to_redeem=amount,
-        )
-        # Grava o resultado na sessao; o pos.order estampa o TID quando sincroniza.
-        tid = res.get('TID')
-        accumulated = (res.get('cashback') or {}).get('accumulatedOrder', 0)
-        sess.write({'tid': tid, 'accumulated': accumulated, 'confirmed': True})
-        return {'tid': tid, 'accumulated': accumulated}
+        sess.amount_to_redeem = amount
+        return {'ok': True, 'amount': amount}
 
     # ------------------------------------------------------------- utilidades
     @staticmethod

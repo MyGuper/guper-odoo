@@ -52,30 +52,50 @@ class PosOrder(models.Model):
     def create(self, vals_list):
         orders = super().create(vals_list)
         if not self.env.context.get('guper_skip'):
-            orders._guper_apply_realtime_result()
+            orders._guper_confirm_realtime()
             orders._guper_flag_pending()
         return orders
 
-    def _guper_apply_realtime_result(self):
-        """Estampa no pedido o TID confirmado em tempo real (acumulo ou resgate),
-        guardado na guper.checkout.session pelo controller. Assim o pedido nao
-        cai no cron. Se nao houver sessao confirmada, segue o fluxo assincrono."""
+    def _guper_confirm_realtime(self):
+        """Confirma no Guper (acumulo e/ou resgate) ao criar o pedido no servidor,
+        usando pos_reference como order_id -> o registro no Guper coincide com o
+        numero do ticket do POS. O front ja deixou na guper.checkout.session o
+        confirmToken, pin_validated e amount_to_redeem. Nao bloqueia o cobro:
+        se falhar, o cron _cron_guper_accruals reintenta o acumulo."""
+        Client = self.env['guper.client']
+        if not Client.enabled():
+            return
         Session = self.env['guper.checkout.session'].sudo()
         for order in self:
-            uuid = getattr(order, 'uuid', False) or order.pos_reference
+            if order._guper_is_refund():
+                continue
+            uuid = getattr(order, 'uuid', False)
             if not uuid:
                 continue
-            sess = Session.search([
-                ('order_uuid', '=', uuid),
-                ('confirmed', '=', True),
-            ], limit=1)
-            if sess and sess.tid and not order.guper_redeem_ref:
-                order.with_context(guper_skip=True).write({
-                    'guper_redeem_ref': sess.tid,
-                    'guper_accrual_state': 'sent',
-                    'guper_accumulated': sess.accumulated or 0,
-                })
-                sess.unlink()
+            sess = Session.search([('order_uuid', '=', uuid)], limit=1)
+            if not sess or sess.confirmed or not sess.confirm_token:
+                continue
+            amount = int(sess.amount_to_redeem or 0)
+            if amount > 0 and not sess.pin_validated:
+                amount = 0
+            try:
+                res = Client.confirm_order(
+                    confirm_token=sess.confirm_token,
+                    order_id=order.pos_reference,
+                    amount_to_redeem=amount,
+                )
+            except Exception as exc:  # noqa: BLE001
+                _logger.warning("Guper: confirmOrder em create falhou (ticket %s): %s",
+                                order.pos_reference, exc)
+                continue
+            tid = res.get('TID')
+            accumulated = (res.get('cashback') or {}).get('accumulatedOrder', 0)
+            order.with_context(guper_skip=True).write({
+                'guper_redeem_ref': tid,
+                'guper_accrual_state': 'sent',
+                'guper_accumulated': accumulated,
+            })
+            sess.write({'tid': tid, 'accumulated': accumulated, 'confirmed': True})
 
     def write(self, vals):
         res = super().write(vals)
@@ -95,11 +115,13 @@ class PosOrder(models.Model):
                 continue
             if line.qty <= 0:
                 continue
+            unit_with_tax = (line.price_subtotal_incl / line.qty
+                             if line.qty else line.price_subtotal_incl)
             items.append({
                 'id': line.product_id.default_code or str(line.product_id.id),
                 'name': line.product_id.display_name,
                 'quantity': int(line.qty),
-                'price': int(round(line.price_unit * 100)),
+                'price': int(round(unit_with_tax * 100)),
                 'productId': str(line.product_id.id),
             })
         return items
